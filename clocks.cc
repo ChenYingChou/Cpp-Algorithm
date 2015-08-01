@@ -1,4 +1,4 @@
-/* clocks.cca -- tonychen@finenet.com.tw
+/* clocks.cc -- tonychen@finenet.com.tw
 
    有9个时钟，排成一个3*3的矩阵。
 
@@ -62,7 +62,6 @@
 #include <vector>
 #include <limits>
 #include <cstring>
-#include <assert.h>
 
 using namespace std;
 
@@ -76,6 +75,7 @@ inline int M3(char ch)
 }
 
 const int MASKS = 0b011011011011011011011011011;
+
 static int clocks;                                  // 9 x 3-bits for (A~I)
 static int twist[10][2] = {
         {     0  ,   0                           }, // 0: not used
@@ -91,16 +91,18 @@ static int twist[10][2] = {
         { M3('D'), 0b001001001000000000000000000 }, // 8:GHI   -> D must be ready
         { M3('G'), 0b001001000001001000000000000 }  // 9:EFHI  -> G must be ready
     };
-static int answerCount;
+
 static step_t history;
 static step_t minHistory;
-static bool debug = false;
 static int searchCount;
+static int answerCount;
+static bool debug = false;
 
-static string get_clocks_name(int t)
+static string get_clocks_name(int clocks)
 {
     string s;
 
+    unsigned int t = clocks;
     char ch = 'A';
     while (t != 0) {
         if (t & 0x03) s.append(1, ch);
@@ -113,7 +115,10 @@ static string get_clocks_name(int t)
 
 static void output_history(const string &title, const step_t &h)
 {
-    if (!title.empty()) cout << title << ": [" << h.size() << "] ";
+    if (!title.empty()) {
+        cout << title << ": [" << h.size() << "] ";
+    }
+
     for (step_t::const_iterator it = h.begin(); it != h.end(); ++it) {
         cout << *it << " ";
     }
@@ -126,10 +131,11 @@ static void output_clocks()
     int t = clocks;
     for (int i = 1; i <= 9; i++) {
         cout << (t & 0x03);
-        if (i % 3 == 0)
+        if (i % 3 == 0) {
             cout << endl;
-        else 
+        } else {
             cout << " ";
+        }
         t >>= 3;
     }
 }

@@ -5,26 +5,26 @@
     103000509
     002109400
     000704000
-    300502006 
-    060000050 
-    700803004 
-    000401000 
-    009205800 
+    300502006
+    060000050
+    700803004
+    000401000
+    009205800
     804000107
 
    Output:
    Case:1
    -----------
-   143 628 579 
-   572 139 468 
+   143 628 579
+   572 139 468
    986 754 231
    -----------
-   391 542 786 
-   468 917 352 
-   725 863 914 
+   391 542 786
+   468 917 352
+   725 863 914
    -----------
-   237 481 695 
-   619 275 843 
+   237 481 695
+   619 275 843
    854 396 127
    -----------
 
@@ -129,8 +129,8 @@ static void run()
         for (int col = 0; col < 9; col++) {
             int val = board[row][col];
             if (val && store(row, col, val) == false) {
-                cout << ">>> Duplicated for (" 
-                    << (row+1) << "," << (col+1) 
+                cout << ">>> Duplicated for ("
+                    << (row+1) << "," << (col+1)
                     << ") = " << val
                     << endl;
                 error_flag = true;
@@ -160,7 +160,7 @@ int main (int argc, char *argv[])
 {
     int nCase;
     cin >> nCase;
-    
+
     for (int n = 1; n <= nCase; n++) {
         memset(board, 0, sizeof(board));
         for (int row = 0; row < 9; row++) {

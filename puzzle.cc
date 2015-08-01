@@ -38,13 +38,13 @@ static int guess()
             press[nRow-1][c]) % 2 != puzzle[nRow][c]) return -1;
     }
     return step;
-} 
+}
 
 static void enumerate ()
-{ 
+{
     int minStep = MAX_SIZE * MAX_SIZE;
     int c;
-    
+
     memset(press, 0, sizeof(press));
 
     c = 1;
@@ -63,21 +63,21 @@ static void enumerate ()
             if (step < minStep) minStep = step;
         }
 
-        press[1][1]++; 
+        press[1][1]++;
         c = 1;
 
         // 对press第1行的元素 press[1][1]~press[1][6]各种取值情况进行枚举,
         // 依次考虑:
-        // 000000 
-        // 100000 
-        // 010000 
-        // 110000 
+        // 000000
+        // 100000
+        // 010000
+        // 110000
         // 001000
         // ...
         // 111111
-        while (press[1][c] > 1) { 
+        while (press[1][c] > 1) {
             press[1][c] = 0;
-            c++; 
+            c++;
             if (c > nCol) break;
             press[1][c]++;
         }
@@ -86,7 +86,7 @@ static void enumerate ()
     if (minStep < MAX_SIZE*MAX_SIZE) {
         cout << "Minus step is " << minStep << endl;
     }
-    return; 
+    return;
 }
 
 int main(int argc, char *argv[])
@@ -105,8 +105,8 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    int cases, i, r, c; 
-    
+    int cases, i, r, c;
+
     cin >> cases;
 
     for (i = 1; i <= cases; i++) {
@@ -118,10 +118,10 @@ int main(int argc, char *argv[])
                 cin >> puzzle[r][c];
             }
         }
-                
+
         cout << "PUZZLE #" << i << " (" << nRow << "x" << nCol << ")" << endl;
         enumerate();
     }
 
-    return 0; 
+    return 0;
 }

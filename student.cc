@@ -77,7 +77,7 @@ class Student {
 
     string get_id() const { return id; }
     void set_id(const string &id) { this->id = make_str(id); }
-    
+
     int get_age() const { return age; }
     void set_age(int age) { this->age = age; }
 
@@ -86,7 +86,7 @@ class Student {
     int grade_avg();
 };
 
-Student::Student(const string &line) 
+Student::Student(const string &line)
     : age(0)
 {
     init_data(line);
@@ -114,7 +114,7 @@ void Student::init_data(const string &line)
     set_name(a.size() > 0 ? a[0] : "");
     set_age (a.size() > 1 ? stoint(a[1]) : 0);
     set_id  (a.size() > 2 ? a[2] : "");
-    
+
     grade.clear();
     for (int i = 3; i < a.size(); i++) {
         grade.push_back(stoint(a[i]));

@@ -5,15 +5,15 @@
    Input:
     2           <- 組數
     3           <- 第1組 3x3
-    yyy 
-    yyy 
-    yyy 
+    yyy
+    yyy
+    yyy
     5           <- 第2組 5x5
-    wwwww 
-    wwwww 
-    wwwww 
-    wwwww 
-    wwwww 
+    wwwww
+    wwwww
+    wwwww
+    wwwww
+    wwwww
 
    Output:
     0           <- 輸出最少按下次數
@@ -69,7 +69,7 @@ static int guess()
     }
 
     // calculate row[2] ~ row[last]
-    for (int r = 1; r < nSize; r++) {       
+    for (int r = 1; r < nSize; r++) {
         // calculate row[r+1]
         // offset = index of row[r+1][1]
         for (int c = 1; c <= nSize; c++) {
@@ -155,7 +155,7 @@ int main (int argc, char *argv[])
 
     int nCase;
     cin >> nCase;
-    
+
     for (int n = 1; n <= nCase; n++) {
         int size;
         cin >> size;

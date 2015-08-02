@@ -41,6 +41,19 @@
     153
     2131
 
+  ----------------------------------------------------------------------------
+    公式: 對 3 x n 棋盤而言
+
+        f(n) = 0, n 為奇數
+
+        f(n) = 4*f(n-2) - f(n-4), n 為偶數且 n >= 2
+        f(n) = 1, n <= 0
+
+        f(2) = 4*f(0) - f(-2) = 4x1  -  1 =   3
+        f(4) = 4*f(2) - f(0)  = 4x3  -  1 =  11
+        f(6) = 4*f(4) - f(2)  = 4x11 -  3 =  41
+        f(8) = 4*f(6) - f(4)  = 4x41 - 11 = 153
+
  */
 
 #include <iostream>
@@ -61,7 +74,7 @@ static char board[(MAX_ROWS+1)*(MAX_COLS+1)];
 static char *end_board;
 static int row_size;
 static int col_size;        // include EOL
-static int answerCount;
+static unsigned long long answerCount;
 static bool debug = false;
 static bool swapRC = false;
 
@@ -163,7 +176,7 @@ int main (int argc, char *argv[])
     int rows = 3;
     if (n < argc && argv[n][0] == '-') {
         rows = -atoi(argv[n]);
-        if (rows < 3 || rows > MAX_ROWS) {
+        if (rows < 2 || rows > MAX_ROWS) {
             cerr << "Invalid rows: " << rows << endl;
             return 1;
         }

@@ -59,17 +59,29 @@ const char EOL = 0;
 
 static char board[(MAX_ROWS+1)*(MAX_COLS+1)];
 static char *end_board;
-static int row_size = 3;
+static int row_size;
 static int col_size;        // include EOL
 static int answerCount;
 static bool debug = false;
+static bool swapRC = false;
 
 static void output()
 {
-    const char *p = board;
-    for (int r = 0; r < row_size; r++) {
-        cout << p << endl;
-        p += col_size;
+    if (swapRC) {
+        for (int c = 0; c < col_size-1; c++) {
+            const char *p = board+c;
+            for (int r = 0; r < row_size; r++) {
+                cout << (*p == '-' ? '|' : '-');
+                p += col_size;
+            }
+            cout << endl;
+        }
+    } else {
+        const char *p = board;
+        for (int r = 0; r < row_size; r++) {
+            cout << p << endl;
+            p += col_size;
+        }
     }
     cout << endl;
 }
@@ -87,17 +99,13 @@ static int dfs(char *p)
     // find next empty cell
     while (p < end_board) {
         if (p[0] == ' ') {
-            int sts = (p[1] == ' ' ? 1 : 0);
-            if (p[col_size] == ' ') sts |= 2;
-            if (sts == 0) return -1;    // unresolved
-
-            if (sts & 1) {
+            if (p[1] == ' ') {
                 p[0] = p[1] = '-';
                 dfs(p+2);
                 p[0] = p[1] = ' ';
             }
-            if (sts & 2) {
-                if (p+2*col_size >= end_board && no_l_space(p+col_size)) return -1;
+            if (p[col_size] == ' ') {
+                //if (p+2*col_size >= end_board && no_l_space(p+col_size)) return -1;
                 p[0] = p[col_size] = '|';
                 dfs(p+1);
                 p[0] = p[col_size] = ' ';
@@ -113,22 +121,29 @@ static int dfs(char *p)
     return 1;   // done
 }
 
-static void run(int width)
+static void run(int rows, int cols)
 {
+    swapRC = rows < cols;
+    if (swapRC) {
+        row_size = cols;
+        col_size = rows;
+    } else {
+        row_size = rows;
+        col_size = cols;
+    }
+
     answerCount = 0;
-    
-    if (width > 0 && width <= MAX_COLS && (row_size & width & 1) == 0) {
-        col_size = width+1;
-        memset(board, ' ', sizeof(board));
-        {
-            char *p = board + width;
-            for (int i = 0; i < row_size; i++) {
-                *p = EOL;
-                p += col_size;
-            }
-            end_board = board + (row_size * col_size);
-            memset(end_board, EOL, col_size);
+    if (col_size > 0 && col_size <= MAX_COLS && (row_size & col_size & 1) == 0) {
+        col_size = col_size+1;  // add EOL to end of each row
+
+        memset(board, ' ', row_size * col_size);
+        end_board = board;
+        for (int i = 0; i < row_size; i++) {
+            end_board += col_size;
+            end_board[-1] = EOL;
         }
+        memset(end_board, EOL, col_size);
+
         dfs(board);
     }
 
@@ -144,10 +159,12 @@ int main (int argc, char *argv[])
         debug = true;
         n++;
     }
+
+    int rows = 3;
     if (n < argc && argv[n][0] == '-') {
-        row_size = -atoi(argv[n]);
-        if (row_size < 3 || row_size > MAX_ROWS) {
-            cerr << "Invalid rows: " << row_size << endl;
+        rows = -atoi(argv[n]);
+        if (rows < 3 || rows > MAX_ROWS) {
+            cerr << "Invalid rows: " << rows << endl;
             return 1;
         }
         n++;
@@ -155,12 +172,12 @@ int main (int argc, char *argv[])
 
     if (n < argc) {
         while (n < argc) {
-            run(atoi(argv[n++]));
+            run(rows, atoi(argv[n++]));
         }
     } else {
         while (!(cin >> n).eof()) {
             if (n == -1) break;
-            run(n);
+            run(rows, n);
         }
     }
 

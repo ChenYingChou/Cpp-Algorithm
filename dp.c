@@ -78,7 +78,7 @@ int main()
             continue;
         }
         if (rows > ROWS) {
-            printf("*** rows(%d) nust be 0~%d\n", rows, ROWS);
+            printf("*** rows(%d) must be 0~%d\n", rows, ROWS);
             continue;
         }
 

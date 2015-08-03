@@ -118,10 +118,15 @@ int main(int argc, char *argv[])
 
     int h;
     while (!(cin >> h >> w).eof()) {
-        if (h <= 0 && w <= 0) break;
+        if (h < 0 || w < 0) break;
 
-        if (h == 0 || w == 0 || (h & w & 1)) {
+        if ((h & w & 1) == 1) {
             cout << 0 << endl;
+            continue;
+        }
+
+        if (h == 0 || w == 0) {
+            cout << 1 << endl;
             continue;
         }
 

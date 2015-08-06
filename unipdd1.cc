@@ -1,4 +1,4 @@
-/* unipdd.cc -- UNIMODAL PALINDROMIC DECOMPOSITIONS
+/* unipdd1.cc -- UNIMODAL PALINDROMIC DECOMPOSITIONS
 
    Descripton:
    -----------
@@ -120,29 +120,39 @@
               +-- C(N) = C(N,0) = ΣC(N,i=1~N) 全部(右方加總)
               |
       整數    V   起頭  起頭  起頭  起頭  起頭  起頭  起頭  起頭  起頭   起頭
-       N      0     1     2     3     4     5     6     7     8     9     10
+       N      0   > 1   > 2   > 3   > 4   > 5   > 6   > 7   > 8   > 9     10
     ------  ------------------------------------------------------------------
-       1      1     1
-       2      2    (1)    1                       本表中的 "-" 表示零
-       3      2     1     -     1
-       4      4     2    (1)    -     1
-       5      3     2     -     -     -     1
-       6      7     4     1    (1)    -     -     1
-       7      5     3     1     -     -     -     -     1
-       8     11     7     2     -    (1)    -     -     -     1
-       9      8     5     1     1     -     -     -     -     -     1
-      10     17    11     3     1     -    (1)    -     -     -     -     1
+       1      1     0
+       2      2    (1)    0                       本表中的 "-" 表示同左值
+       3      2     1     -     0
+       4      4     2    (1)    -     0
+       5      3     1     -     -     -     0
+       6      7     3     2    (1)    -     -     0
+       7      5     2     1     -     -     -     -     0
+       8     11     4     2     -    (1)    -     -     -     0
+       9      8     3     2     1     -     -     -     -     -     0
+      10     17     6     3     2     -    (1)    -     -     -     -     0
 
     為節省空間, 括號或減號後的數值可不儲存, 即對 N 而言儲存到 N/3 位置即可。
     因為 N 可拆成一對(偶數, 可被2整除)及本身的計數均為 1, 沒儲存的必要。
 
-    範例: 10 的單峰回文組合個數計算如下
+    範例:
+     1) 9 的單峰回文組合個數計算如下
+        C(9) = C(9,0) = 5 + 1 + 1 + 1 = 9
+            + C(7,0)            --> 1 (7) 1 = 5
+            + C(5,1)            --> 2 (5) 2 = 1
+            + C(3,2)            --> 3 (3) 3 = 1
+     [不處理] C(2,3) 非單峰回文 --> 4 (1) 4
+            + 自己本身(9)       --> 1
+
+     2) 10 的單峰回文組合個數計算如下
         C(10) = C(10,0) = 11 + 3 + 1 + 1 + 1 = 17
-              C(8)                      --> 1 (8) 1 = 11
-            + C(6) - C(6,1)             --> 2 (6) 2 = 7 - 4 = 3
-            + C(4) - C(4,1) - C(4,2)    --> 3 (4) 3 = 4 - 2 - 1 = 1
-            + 1                         --> 拆一對(5 5), 加1次
-            + 1                         --> 自己本身(10), 加1次
+            + C(8,0)            --> 1 (8) 1 = 11
+            + C(6,1)            --> 2 (6) 2 = 7 - 4 = 3
+            + C(4,2)            --> 3 (4) 3 = 4 - 2 - 1 = 1
+     [不處理] C(2,3) 非單峰回文 --> 4 (2) 4
+            + 1                 --> 拆一對(5 5), 加1次
+            + 1                 --> 自己本身(10), 加1次
  */
 
 #include <iostream>
@@ -153,8 +163,6 @@
 #include <assert.h>
 
 using namespace std;
-
-#define OPTIMIZE 1
 
 #if !defined(nullptr)
   #define nullptr 0
@@ -225,86 +233,67 @@ void UNI_PDD::output()
 
 ULL UNI_PDD::operator() (const int N, const int index)
 {
-    assert(N >= 0 && index >= 0 && index <= N);
+    assert(N > 0 && index >= 0 && index <= N);
 
-    if (N <= 2) {
-        return index ? 1 : N;   // 化簡 C(1,?), C(2,?) 的輸出, 不儲存
-    }
+    // N 單峰文中大於 N/2 的只有自己本身
+    if (2 * index >= N) return index < N ? 1 : 0;       
 
-    int maxCol = N / 3;
-    if (index > maxCol) {
-        return index == N || 2 * index == N ? 1 : 0;
-    }
+    if (N <= 2) return N - index;       // 化簡 C(1,?), C(2,?) 的輸出, 不儲存
 
     // 確保有足夠的空間儲存, 0~2 位置保留但不使用
     if (N >= _state.size()) _state.resize(N+1, nullptr);
 
+    // 儲存前 1/3 的值即可: N 分成三份, 中間數必需比兩邊的數大, 兩邊的要相等
+    int maxCol = N / 3;
     vULL *p = _state[N];
-    if (p) return (*p)[index];  // 之前已計算有值, 直接返回儲存結果
 
-    // 新的數值, 要計算所有欄位
-    p = new vULL(maxCol+1, 0);
-    _state[N] = p;
-    vULL &X = *p;               // 用參考方便使用, X[i] 代表 C(N, i=0~N/3)
+    // 若之前已計算有值, 則直接返回儲存結果
+    if (p == nullptr) {
+        // 新的數值, 要計算本數值所有欄位可能欄位值
+        p = new vULL(maxCol+1, 0);
+        _state[N] = p;
+        vULL &X = *p;   // 用參考方便使用, X[i] 代表 C(N, i=0~N/3)
 
-    // 計算 C(N, 0) =  ΣC(N, 1~N/3) + 1(本身) + 是否可拆成一對(偶數)
-    X[0] = 2 - (N & 1);         // 本身 + 是否可拆成一對(偶數) = 2 - (odd ? 1 : 0)
-    if (debug > 1) {
-        cout << N << ": sum = " << X[0] << endl;
-    }
+        // 計算 C(N, i=0~N/3) => C(N, i) = C(N-2,i+1) + C(N, i+1)
+        int N2 = N - 2*(maxCol+1);
+        ULL last = 1;                           // 本身
+        if ((N & 1) == 0 && N2 > 0) last++;     // 一對但不儲存, N >= 8 的偶數
 
-    int N2 = N - 2;
-    X[0] += X[1] = operator()(N2);          // C(N-2): 1 (N-2) 1
-    if (debug > 1) {
-        cout << N << ": sum = " << X[0]
-            << " after plus C(" << N2 << ")="
-            << X[1] << endl;
-    }
-
-    for (int i = 2; i <= maxCol; i++) {
-        N2 -= 2;
-        ULL Xi = operator()(N2);            // C(N-2*i): i (N-2*i) i, i = 2 ~ N/3
         if (debug > 1) {
-            cout << N << ": X[" << i << "] = "
-                << "C(" << N2 << ") = "
-                << Xi << endl;
+            cout << N << ": last = " << last << endl;
         }
 
-#if defined(OPTIMIZE)
-        vULL &Y = *_state[N2];
-        if ((N2 & 1) == 0 && 2*i > N2) {
-            Xi--;
-            if (debug > 1) {
-                cout << N << ": X[" << i << "] = " << Xi
-                    << " after minus C(" << N2 << "," << (N2/2) << ")=1"
-                    << endl;
+        for (int i = maxCol; i >= 0; i--) {
+            // N = 2*(i+1) + N2 => (i+1) (N2) (i+1) -> C(N2, i)
+            if (N2 == 0) {
+                // 一對要儲存: 其實只有 N = 4, 6 時才會在此執行
+                last++;
+                if (debug > 1) {
+                    cout << N << ": " << i+1 << " (" << N2 << ") " << i+1 
+                        << " -> pair = 1"
+                        << endl;
+                }
+            } else if (N2 >= i) {
+                ULL v = operator()(N2, i);
+                last += v;
+                if (debug > 1) {
+                    cout << N << ": " << i+1 << " (" << N2 << ") " << i+1 
+                        << " -> C(" << N2 << ", " << i << ") = " << v
+                        << endl;
+                }
             }
-        }
 
-        for (int j = min(i, N2/3+1); --j >= 1; ) {
-            ULL v = Y[j];
-#else
-        for (int j = 1; j < i; j++) {
-            if (2*j > N2) break;
-            ULL v = operator()(N2, j);
-#endif
-            Xi -= v;                        // 減去 C(N-2*i, j), j = 1 ~ i-1
+            X[i] = last;
             if (debug > 1) {
-                cout << N << ": X[" << i << "] = " << Xi
-                    << " after minus C(" << N2 << "," << j << ")="
-                    << v << endl;
+                cout << N << ": X[" << i << "] = " 
+                    << last << endl;
             }
-        }
 
-        X[0] += X[i] = Xi;
-        if (debug > 1) {
-            cout << N << ": sum = " << X[0]
-                << " after plus X[" << i << "]="
-                << Xi << endl;
+            N2 += 2;
         }
     }
 
-    return X[index];
+    return (*p)[min(index,maxCol)];  
 }
 
 int main(int argc, char *argv[])

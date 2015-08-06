@@ -154,6 +154,8 @@
 
 using namespace std;
 
+#define OPTIMIZE 1
+
 #if !defined(nullptr)
   #define nullptr 0
 #endif
@@ -243,27 +245,44 @@ ULL UNI_PDD::operator() (const int N, const int index)
 
     for (int i = 2; i <= maxCol; i++) {
         N2 -= 2;
-        X[i] = operator()(N2);              // C(N-2*i): i (N-2*i) i, i = 2 ~ N/3
+        ULL Xi = operator()(N2);            // C(N-2*i): i (N-2*i) i, i = 2 ~ N/3
         if (debug > 1) {
             cout << N << ": X[" << i << "] = "
-                << "C(" << N2 << ")="
-                << X[i] << endl;
+                << "C(" << N2 << ") = "
+                << Xi << endl;
         }
 
-        for (int j = 1; j < i; j++) {
-            X[i] -= operator()(N2, j);      // 減去 C(N-2*i, j), j = 1 ~ i-1
+#if defined(OPTIMIZE)
+        vULL &Y = *_state[N2];
+        if ((N2 & 1) == 0 && 2*i > N2) {
+            Xi--;
             if (debug > 1) {
-                cout << N << ": X[" << i << "] = " << X[i]
-                    << " after minus C(" << N2 << "," << j << ")="
-                    << X[i] << endl;
+                cout << N << ": X[" << i << "] = " << Xi
+                    << " after minus C(" << N2 << "," << (N2/2) << ")=1"
+                    << endl;
             }
         }
 
-        X[0] += X[i];
+        for (int j = min(i, N2/3+1); --j >= 1; ) {
+            ULL v = Y[j];
+#else
+        for (int j = 1; j < i; j++) {
+            if (2*j > N2) break;
+            ULL v = operator()(N2, j);
+#endif
+            Xi -= v;                        // 減去 C(N-2*i, j), j = 1 ~ i-1
+            if (debug > 1) {
+                cout << N << ": X[" << i << "] = " << Xi
+                    << " after minus C(" << N2 << "," << j << ")="
+                    << v << endl;
+            }
+        }
+
+        X[0] += X[i] = Xi;
         if (debug > 1) {
             cout << N << ": sum = " << X[0]
                 << " after plus X[" << i << "]="
-                << X[i] << endl;
+                << Xi << endl;
         }
     }
 

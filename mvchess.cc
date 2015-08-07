@@ -1,4 +1,4 @@
-/* mvchess.cc
+/* mvchess.cc -- tonychen@finenet.com.tw
 
    描述:
     在一个给定形状的棋盘（形状可能是不规则的）上面摆放棋子，棋子没有区别。
@@ -31,7 +31,7 @@
     2
     1
 
-   註: '#' 才表示可以放棋子的位置!!
+   註: '#' 表示可以放棋子的位置!!
 
  */
 
@@ -47,9 +47,9 @@
 using namespace std;
 
 typedef vector<char> vchar;
-typedef vector<int> vstate;
+typedef unsigned long long vstate;
 
-const int MAX_SIZE = 20;
+const int MAX_SIZE = 8 * sizeof(vstate);        // bits for columns used
 const char EMPTY = '#';     // 可放棋子
 const char STONE = '.';     // 不可放棋子
 const char CHESS = '*';     // 棋子記號
@@ -59,7 +59,7 @@ static int debug;
 class Board {
   private:
     vchar _board;
-    vstate _used;           // _used[_cols]: 代表每一column是否被使用
+    vstate _used;           // bit-map: columns 是否被使用
     int _rows;
     int _cols;
     int _size;              // _rows x _cols
@@ -85,11 +85,11 @@ class Board {
     Board(int size) : _rows(size), _cols(size) {
         initialize();
     }
-    void put_row(int row, const string &s);
-    void put(int row, int col, char ch) {
+    void put_row(int row, const string &s);         // row: 1 ~ MAX_SIZE
+    void put(int row, int col, char ch) {           // row, col: 1 ~ MAX_SIZE
         _board[offset(row, col)] = ch;
     }
-    char get(int row, int col) const {
+    char get(int row, int col) const {              // row, col: 1 ~ MAX_SIZE
         return _board[offset(row, col)];
     }
     void output(const char *title, int k) const;
@@ -142,9 +142,13 @@ void Board::output(const char *title, int k) const
 int Board::resolve(int k)
 {
     assert(k > 0);
+
+    // 若要擺放的棋子數大於列數或行數則無解
     if (k > _rows || k > _cols) return 0;
 
-    if (k == 1) {   // count for EMPTY
+    // 若只有一個棋子, 則計算可下子的位置即可
+    if (k == 1) {   
+        // count for EMPTY
         int count = 0;
         for (int n = 0; n < _size; n++) {
             if (_board[n] == EMPTY) count++;
@@ -152,14 +156,11 @@ int Board::resolve(int k)
         return count;
     }
 
-    _used.resize(_cols);
-    fill(_used.begin(), _used.end(), 0);
-
+    _used = 0;
     _fk = k;
     _fcount = 0;
     search(0);
 
-    _used.clear();
     return _fcount;
 }
 
@@ -169,13 +170,13 @@ bool Board::valid_pos(int &npos) const
 
     int row = npos / _cols;
     if (_fk + row > _rows) {
-        // 剩下的列數不足以放下 _fk 個棋子, 強迫放棄目前棋盤, 返回上一層
+        // 剩下列數不足以擺 _fk 個棋子, 放棄目前棋盤(將npos改到棋盤外)即返回上層
         npos = _size;
         return false;
     }
 
     int col = npos % _cols;
-    return _used[col] == 0;
+    return (_used & (1 << col)) == 0;   // 返回該 column 是否已被佔用?
 }
 
 int Board::store_pos(int npos)
@@ -185,7 +186,7 @@ int Board::store_pos(int npos)
 
     _fk--;
     _board[npos] = CHESS;
-    _used[col] = row;               // 非零表示佔用該column
+    _used |= 1 << col;              // 佔用該 column 的 bit
 
     return row * _cols;             // 跳到下列開頭位置
 }
@@ -196,7 +197,7 @@ void Board::restore_pos(int npos)
 
     _fk++;
     _board[npos] = EMPTY;
-    _used[col] = 0;                 // 零表示未佔用該column
+    _used &= ~(1 << col);           // 清除該 column 的 bit
 }
 
 void Board::search(int npos)
@@ -210,7 +211,7 @@ void Board::search(int npos)
                     output("Resolve: ", _fcount);
                     restore_pos(npos);
                 }
-            } else {                // 佔用現在位置, 繼續擺下一個棋子(下一列)
+            } else {                // 佔用現在位置, 繼續下個棋子(下一列)
                 search(store_pos(npos));
                 restore_pos(npos);
             }
@@ -242,7 +243,7 @@ int main(int argc, char *argv[])
 
         int answer = B.resolve(k);
         if (debug) {
-            cout << "--> " << answer << endl;
+            cout << "--> " << answer << endl << endl;
         } else {
             cout << answer << endl;
         }

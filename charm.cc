@@ -47,27 +47,27 @@ using namespace std;
 typedef vector<int> vint;
 typedef unsigned long long ULL;
 
+const int MAX_M = 12880;
+const int MAX_N = 3402;
+
 static vint Wi;
 static vint Di;
-static vint Order;
+static int C[MAX_N+1][MAX_M+1];
 static int debug;
 static ULL counter;
 
-static int knap(int n, int D, int M)
+static int dkp(int N, int M)
 {
-    if (n >= Order.size()) return D;
-    if (debug) counter++;
+    if (N <= 0 || M == 0) return 0;
 
-    int idx = Order[n];
-    if (Wi[idx] > M) return D;  // 往後只會有更大的Wi[], 因此也不用往下計算
+    if (C[N][M]) return C[N][M];
+    counter++;
+    N--;
 
-    return max(knap(n+1, D, M), knap(n+1, D+Di[idx], M-Wi[idx]));
-}
+    int D = dkp(N, M);
+    if (Wi[N] <= M) D = max(D, dkp(N, M-Wi[N]) + Di[N]);
+    return C[N+1][M] = D;
 
-// 依重量由小到大排序
-static bool cmpWi(int i, int j)
-{
-    return Wi[i] < Wi[j];
 }
 
 int main(int argc, char *argv[])
@@ -76,18 +76,17 @@ int main(int argc, char *argv[])
 
     int N, M;
     while (!(cin >> N >> M).eof() && N > 0 && M > 0) {
+        assert(N <= MAX_N && M <= MAX_M);
+        
         Wi.resize(N, 0);
         Di.resize(N, 0);
         for (int i = 0; i < N; i++) {
             cin >> Wi[i] >> Di[i];
         }
 
-        Order.resize(N, 0);
-        for (int i = 0; i < N; i++) Order[i] = i;
-        sort(Order.begin(), Order.end(), cmpWi);
-
+        memset(C, 0, sizeof(C));
         if (debug) counter = 0;
-        int answer = knap(0, 0, M);
+        int answer = dkp(N, M);
 
         if (debug) cout << "--> counter = " << counter << endl;
         cout << answer << endl;
@@ -95,7 +94,6 @@ int main(int argc, char *argv[])
 
     Wi.clear();
     Di.clear();
-    Order.clear();
     return 0;
 }
 

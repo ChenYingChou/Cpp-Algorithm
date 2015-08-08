@@ -54,20 +54,25 @@ static vint Wi;
 static vint Di;
 static int C[MAX_N+1][MAX_M+1];
 static int debug;
-static ULL counter;
 
 static int dkp(int N, int M)
 {
-    if (N <= 0 || M == 0) return 0;
+    memset(C, 0, sizeof(C));
+    for (int i = 0; i < N; i++) {
+        // 由第(i)列推導出(i+1)列
+        for (int j = 0; j <= M; j++) {
+            if (j < Wi[i]) {
+                // 不足以扣除 Wi[i] 的重量, 故延用前一值
+                C[i+1][j] = C[i][j];
+            } else {
+                // 取 max(不用第i個物品, 用第i個物品) 最大利益
+                // 相對遞歸版本: C[n+1][m] = max(dpk(n,m), dpk(n,m-Wi[n])+Di[n])
+                C[i+1][j] = max(C[i][j], C[i][j-Wi[i]] + Di[i]);
+            }
+        }
+    }
 
-    if (C[N][M]) return C[N][M];
-    counter++;
-    N--;
-
-    int D = dkp(N, M);
-    if (Wi[N] <= M) D = max(D, dkp(N, M-Wi[N]) + Di[N]);
-    return C[N+1][M] = D;
-
+    return C[N][M];
 }
 
 int main(int argc, char *argv[])
@@ -84,11 +89,8 @@ int main(int argc, char *argv[])
             cin >> Wi[i] >> Di[i];
         }
 
-        memset(C, 0, sizeof(C));
-        if (debug) counter = 0;
         int answer = dkp(N, M);
 
-        if (debug) cout << "--> counter = " << counter << endl;
         cout << answer << endl;
     }
 

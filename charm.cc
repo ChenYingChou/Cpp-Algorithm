@@ -34,55 +34,44 @@
  */
 
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <stdexcept>
-#include <cstring>
-#include <assert.h>
 
 using namespace std;
 
 typedef vector<int> vint;
-typedef unsigned long long ULL;
-
-const int MAX_M = 12880;
-const int MAX_N = 3402;
 
 static vint Wi;
 static vint Di;
-static int C[MAX_N+1][MAX_M+1];
-static int debug;
+static vint CC;
 
 static int dkp(int N, int M)
 {
-    memset(C, 0, sizeof(C));
+    CC.clear();
+    CC.resize(M+1, 0);
+
+    int *C = &CC[0];
     for (int i = 0; i < N; i++) {
-        // 由第(i)列推導出(i+1)列
-        for (int j = 0; j <= M; j++) {
-            if (j < Wi[i]) {
-                // 不足以扣除 Wi[i] 的重量, 故延用前一值
-                C[i+1][j] = C[i][j];
-            } else {
-                // 取 max(不用第i個物品, 用第i個物品) 最大利益
-                // 相對遞歸版本: C[n+1][m] = max(dpk(n,m), dpk(n,m-Wi[n])+Di[n])
-                C[i+1][j] = max(C[i][j], C[i][j-Wi[i]] + Di[i]);
-            }
+        // 累算第(i)個物品使用與不使用後, 各個重量(當成C[]的索引)的最大利益
+
+        // 由第(i)列推導出(i+1)列, 為避免前次C[]值被新值覆蓋, 故由後往前計算
+        // 因為每次計算會使用到前次小於等於目前位置的值
+        for (int j = M, k = M-Wi[i]; k >= 0; j--, k--) {
+            // k = j - Wi[i]
+            // 取累計 max(不用第i個物品, 用第i個物品) 最大利益
+            // 相對遞歸版本: C[i+1][j] = max(dpk(i,j), dpk(i,j-Wi[i])+Di[i])
+            C[j] = max(C[j], C[k] + Di[i]);
         }
     }
 
-    return C[N][M];
+    return C[M];
 }
 
 int main(int argc, char *argv[])
 {
-    if (argc > 1 && strncmp(argv[1], "-d", 2) == 0) debug = strlen(&argv[1][1]);
-
     int N, M;
     while (!(cin >> N >> M).eof() && N > 0 && M > 0) {
-        assert(N <= MAX_N && M <= MAX_M);
-        
         Wi.resize(N, 0);
         Di.resize(N, 0);
         for (int i = 0; i < N; i++) {
@@ -96,6 +85,7 @@ int main(int argc, char *argv[])
 
     Wi.clear();
     Di.clear();
+    CC.clear();
     return 0;
 }
 

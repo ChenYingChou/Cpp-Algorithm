@@ -121,6 +121,7 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -130,8 +131,6 @@
 #include <assert.h>
 
 using namespace std;
-
-#define ZERO_IN_MIDDLE 1
 
 typedef vector<char> vchar;
 typedef vector<int> vint;
@@ -149,7 +148,7 @@ class Shredder {
 
     static int t10[10];
 
-    void dfs(int T, int N);
+    void dfs(int T, int N, int digits);
 
   public:
     int cut_up(int target, int number);
@@ -166,20 +165,31 @@ int Shredder::t10[] = {
     1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000
 };
 
+// value v[0] v[1] ...
+static string tostr(const char *title, int value, const vint &v)
+{
+    stringstream os;
+
+    if (debug) {
+        os << title << value << ":";
+    } else {
+        os << value;
+    }
+
+    for (vint::const_iterator it = v.begin(); it != v.end(); ++it) {
+        os << " " << *it;
+    }
+
+    return os.str();
+}
+
 string Shredder::status() const
 {
     if (is_error()) return "error";
     if (is_rejected()) return "rejected";
 
     // sum part1 part2 ...
-    stringstream os;
-
-    os << _sum;
-    for (vint::const_iterator it = _list.begin(); it != _list.end(); ++it) {
-        os << " " << *it;
-    }
-
-    return os.str();
+    return tostr("SUM=", _sum, _list);
 }
 
 int Shredder::cut_up(int target, int number)
@@ -195,9 +205,12 @@ int Shredder::cut_up(int target, int number)
         return 1;
     }
 
+    int digits = sizeof(t10) / sizeof(int);
+    while (digits > 1 && number < t10[digits-1]) digits--;
+
     _parts.clear();
     _closest = target;
-    dfs(target, number);
+    dfs(target, number, digits);
 
     if (_count > 0) _sum = target - _closest;
 
@@ -205,54 +218,53 @@ int Shredder::cut_up(int target, int number)
 }
 
 // T: 目標值
-// N: 不含前置零的數組(待拆組的值)
-void Shredder::dfs(int T, int N)
+// N: 不含前置零的數值(待拆組的值)
+// digits: 數值 N 的位數
+void Shredder::dfs(int T, int N, int digits)
 {
     assert(T >= 0);
 
-    if (N == 0) {
+    if (digits == 0) {
         if (T < _closest) {         // 到目前為止的最接近解
             _list = _parts;
             _count = 1;
             _closest = T;
-        } else if (T == _closest) { // 有第二組相同的最接近解(距離皆為T)
+            if (debug) {
+                cout << tostr("Closest=", T, _parts) << endl;
+            }
+        } else if (T == _closest) { // 有重複的最接近解(距離皆為T)
             _count++;
+            if (debug) {
+                cout << tostr("Closest=", T, _parts)
+                    << " --> Duplicated=" << _count << endl;
+            }
         }
     } else {
-        if (N <= T) {
-            _parts.push_back(N);
-            dfs(T-N, 0);
-            _parts.pop_back();
+        if (debug > 1) {
+            cout << "N=" << setfill('0') << setw(digits) << N
+                << setfill(' ') << setw(11-digits) << " "
+                << tostr("T=", T, _parts);
+            if (T - N > _closest) cout << " --> Skip";
+            cout << endl;
         }
 
-        // 繼續拆解所有可能的N
-        int shift = 1;
-        while (N >= t10[shift]) {
-            int N1 = N / t10[shift];
+        // N 組合最大值一定是 N, (T-N) 可能是這層最接近的解
+        // 若 T - N > _closest, 那麼也不必繼續找了, 返回上層
+        if (T - N > _closest) return;
+
+        // 拆解可能組合: 依長度分成兩半 (digits,0) (digits-1,1) ... (1, digits-1)
+        // 前半部加入sum (從T減掉), 後半部位數值帶入遞歸繼續求最佳解
+        for (int i = 0; i < digits; i++) {
+            int N1 = N / t10[i];
+
+            // 確保進入下層 dfs 時 T >= 0
             if (N1 <= T) {
+                int N2 = N % t10[i];
+
                 _parts.push_back(N1);
-                
-                int N2 = N % t10[shift];
-#if defined(ZERO_IN_MIDDLE)
-                // 考慮前置零: 拆解成獨立的 "0"
-                int zero_count = 0;
-                for (int i = shift; --i >= 0 && N2 < t10[i]; ) {
-                    _parts.push_back(0);
-                    zero_count++;
-                }
-
-                dfs(T-N1, N2);
-
-                if (zero_count > 0) _parts.resize(_parts.size()-zero_count);
-#else
-                if (N2 == 0) _parts.push_back(0);
-                dfs(T-N1, N2);
-                if (N2 == 0) _parts.pop_back();
-#endif
-
+                dfs(T-N1, N2, i);
                 _parts.pop_back();
             }
-            shift++;
         }
     }
 }

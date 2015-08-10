@@ -154,6 +154,7 @@ class Shredder {
     int cut_up(int target, int number);
     bool is_error() const { return _count == 0; }
     bool is_rejected() const { return _count > 1; }
+    int closest() const { return _closest; }
     void clear() { 
         _list.clear();
         _sum = _count = 0;
@@ -194,7 +195,7 @@ string Shredder::status() const
 
 int Shredder::cut_up(int target, int number)
 {
-    assert(target > 0 && number > 0);
+    assert(target > 0 && target < t10[9] && number > 0 && number < t10[9]);
 
     clear();
 
@@ -236,7 +237,7 @@ void Shredder::dfs(int T, int N, int digits)
             _count++;
             if (debug) {
                 cout << tostr("Closest=", T, _parts)
-                    << " --> Duplicated=" << _count << endl;
+                    << " --> Duplicated: " << _count << endl;
             }
         }
     } else {
@@ -280,7 +281,9 @@ int main(int argc, char *argv[])
 
     while (!(cin >> target >> number).eof() && target > 0 && number > 0) {
         S.cut_up(target, number);
-        cout << S.status() << endl;
+        cout << S.status();
+        if (debug && !S.is_error()) cout << ", Closest=" << S.closest();
+        cout << endl;
     }
 
     return 0;

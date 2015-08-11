@@ -1,5 +1,8 @@
-// puzzle.cc
-// 截自教材內容
+// puzzle.cc: 截自教材內容 -- 熄燈問題或翻格遊戲
+//
+// 在 M x N 的棋盤中, 每一格子不是黑就是白。每當點擊某一格子時, 本身連同
+// 上下左右格子會變成另一顏色。要求以最少步驟將棋盤面上全部翻成黑色。
+//
 
 #include <iostream>
 #include <stdio.h>
@@ -84,7 +87,7 @@ static void enumerate ()
     }
 
     if (minStep < MAX_SIZE*MAX_SIZE) {
-        cout << "Minus step is " << minStep << endl;
+        cout << "Minimum step is " << minStep << endl;
     }
     return;
 }

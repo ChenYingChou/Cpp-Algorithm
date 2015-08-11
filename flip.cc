@@ -69,29 +69,29 @@
         ...
         ○○○○ <- 以上列已翻轉完成(全部為零)
         ●○●○ <- n-1列: 設法將這列的1消去, 也就是翻轉正下方的格子
-        ●○○○ <- 第n列: 正要翻轉的列, 因此要翻轉第1和3的格子
+        ●○○○ <- 第n列: 正要翻轉的列, 本例要翻轉第1和3的格子(上列黑子處)
         ○○○● <- n+1列: 本列狀態會受上列翻轉影響
         ○●○○
 
-    由於不知第1列狀況應如何翻轉, 因此必須將第1列所有可能情況都試一次:
-        ? ? ? ?  <- 虛擬例: 從 0000b 到 1111b 全部都試一次
+    由於不確定第1列應如何翻轉, 因此要將第1列所有可能情況都試一次:
+        ? ? ? ?  <- 虛擬列: 從 0000b 到 1111b 全部都試一次
         ●○○● <- 第1列: 正要翻轉的列
         ○○○● <- 第2列: 本列狀態會受上列翻轉影響
         ○●○●
         ...
         ○●○○
 
-    最後一列開始處翻轉:
-        ○○○○
+    最後一列開始翻轉前:
+        ○○○○ <- 第一列
         ...
         ○○○○ <- 以上列已翻轉完成(全部為零)
         ●○●○ <- 倒數第2列: 設法將這列的1消去, 也就是翻轉正下方的格子
-        ●○○○ <- 最後一列: 正要翻轉的列, 因此要翻轉第1和3的格子
+        ●○○○ <- 最後一列: 正要翻轉的列, 本例要翻轉第1和3的格子(上列黑子處)
         ○○○● <- 虛擬列: 本列狀態會受上列翻轉影響, 本列不會用到
 
     最後一列翻轉後結果:
         ? ? ? ?  <- 虛擬列: 0000b 到 1111b 的其中之一  <--------------------+
-        ○○○○                                                            |
+        ○○○○ <- 第一列                                                  |
         ...                                                                 |
         ○○○○ <- 以上列已翻轉完成(全部為零)                              |
         ○○○○ <- 倒數第2列: 這列的1已全部消去                            |
@@ -303,7 +303,7 @@ int Board::flip_to_zero(int minRounds)
 {
     _press.resize(_rows+1);
 
-    // 將 row[0] 每一狀況都試一次: 2^(_cols)
+    // 將 row[0] 每一狀況都試一次: 0 ~ 2^(_cols) - 1
     ULL flips = 0;
     do {
         if (bit_count(flips) >= minRounds) continue;
@@ -313,10 +313,10 @@ int Board::flip_to_zero(int minRounds)
         ULL row1 = _board[0];           // 即將處理這列棋盤狀態
 
         fill(_press.begin(), _press.end(), 0);
-        _press[0] = row0;               // 第一列預期的點擊結果
+        _press[0] = row0;               // 第一列預期的翻轉結果
 
         for (int n = 1; n <= _rows; n++) {
-            // 預判這一列點擊次數, 若累計超過目前最小次數, 則換 row[0] 下一狀況
+            // 預判這一列翻轉次數, 若累計超過目前最小次數, 則換 row[0] 下一狀況
             rounds += bit_count(row0);
             if (rounds >= minRounds) {
                 if (debug > 1) {
@@ -437,7 +437,7 @@ int main(int argc, char *argv[])
 
     Board B(rows, cols);
     string s;
-    while (!getline(cin, s).eof()) {
+    while (getline(cin, s)) {
         if (s.empty()) continue;
 
         int n = 1;
@@ -458,13 +458,8 @@ int main(int argc, char *argv[])
             break;
         }
 
-        while (n <= rows && !getline(cin, s).eof()) {
+        while (n <= rows && getline(cin, s)) {
             if (!s.empty()) put_board(B, n, s);
-        }
-
-        if (cin.eof()) {
-            cout << "<<< EOF >>>" << endl;
-            break;
         }
 
         if (debug) B.output_board();

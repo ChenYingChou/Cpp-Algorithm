@@ -304,13 +304,12 @@ int Board::flip_to_zero(int minRounds)
     _press.resize(_rows+1);
 
     // 將 row[0] 每一狀況都試一次: 2^(_cols)
-    ULL flip0 = 1 << _cols;
+    ULL flips = 0;
     do {
-        flip0--;
-        if (bit_count(flip0) >= minRounds) continue;
+        if (bit_count(flips) >= minRounds) continue;
 
         int rounds = 0;
-        ULL row0 = flip0 << 1;          // 前一列狀態: 要設法將之變為零
+        ULL row0 = flips << 1;          // 前一列狀態: 要設法將之變為零
         ULL row1 = _board[0];           // 即將處理這列棋盤狀態
 
         fill(_press.begin(), _press.end(), 0);
@@ -368,7 +367,7 @@ int Board::flip_to_zero(int minRounds)
                 if (debug) output_press(rounds);
             }
         }
-    } while (flip0 > 0);
+    } while (++flips < (1 << _cols));
 
     return minRounds;
 }

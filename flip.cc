@@ -206,11 +206,12 @@ static bool is_one(char c)
     return false;
 }
 
+// row: 1-based
 void Board::put_row(int row, const string &s)
 {
     if (_rotate) {
         validate(s.size(), row);
-        int bit1 = 1 << (row+1);
+        int bit1 = 1 << row;
         for (int i = 0; i < s.size(); i++) {
             if (is_one(s[i])) _board[i] |= bit1;
         }

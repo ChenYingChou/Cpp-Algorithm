@@ -93,7 +93,7 @@ class Board {
         return _board[offset(row, col)];
     }
     void output(const char *title, int k) const;
-    int resolve(int k);
+    int solve(int k);
 };
 
 static string pair_str(const char *title, int a, int b)
@@ -139,7 +139,7 @@ void Board::output(const char *title, int k) const
     cout << endl << endl;
 }
 
-int Board::resolve(int k)
+int Board::solve(int k)
 {
     assert(k > 0);
 
@@ -241,7 +241,7 @@ int main(int argc, char *argv[])
 
         if (debug) B.output("Board: K=", k);
 
-        int answer = B.resolve(k);
+        int answer = B.solve(k);
         if (debug) {
             cout << "--> " << answer << endl << endl;
         } else {

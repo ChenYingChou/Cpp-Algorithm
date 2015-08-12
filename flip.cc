@@ -163,7 +163,7 @@ class Board {
     void put_row(int row, const string &s);         // row: 1 ~ _rows
     void output_board() const;
     void output_press(int rounds) const;
-    int resolve(int mode);
+    int solve(int mode);
 };
 
 void Board::initialize(int rows, int cols)
@@ -277,9 +277,9 @@ void Board::reverse_board()
     }
 }
 
-// mode == 0,1,3: resolve normal board
-// mode == 0,2,3: resolve reverse board
-int Board::resolve(int mode)
+// mode == 0,1,3: solve normal board
+// mode == 0,2,3: solve reverse board
+int Board::solve(int mode)
 {
     int rounds = MAX_SIZE*MAX_SIZE+1;
 
@@ -465,7 +465,7 @@ int main(int argc, char *argv[])
 
         if (debug) B.output_board();
 
-        int answer = B.resolve(mode);
+        int answer = B.solve(mode);
         if (debug) {
             cout << "--> " << answer << endl << endl;
         } else {

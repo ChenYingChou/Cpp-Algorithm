@@ -84,8 +84,8 @@ class Maze {
     void clear();
     void put_row(int row, const string &s);         // row: 1 ~ _rows
     void output_maze(bool show_content=false) const;
-    int resolve(int row_s, int col_s, int row_t, int col_t);
-    int resolve();
+    int solve(int row_s, int col_s, int row_t, int col_t);
+    int solve();
     void output_path(ostream &os) const;
 };
 
@@ -202,12 +202,12 @@ void Maze::output_path(ostream &os) const
     }
 }
 
-int Maze::resolve()
+int Maze::solve()
 {
-    return resolve(1, 1, _rows, _cols);
+    return solve(1, 1, _rows, _cols);
 }
 
-int Maze::resolve(int row_s, int col_s, int row_t, int col_t)
+int Maze::solve(int row_s, int col_s, int row_t, int col_t)
 {
     if (row_s > _rows || row_t > _rows || col_s > _cols || col_t > _cols) return -1;
 
@@ -344,7 +344,7 @@ int main(int argc, char *argv[])
 
         if (debug) M.output_maze();
 
-        int answer = M.resolve();
+        int answer = M.solve();
         if (answer >= 0) {
             if (debug > 1) M.output_maze(true);
             if (debug) cout << "--> " << answer << endl << endl;

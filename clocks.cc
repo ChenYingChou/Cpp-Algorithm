@@ -213,7 +213,7 @@ static void run()
     if (answerCount > 0) {
         output_history(debug ? "Answer" : "", minHistory);
     } else {
-        cout << "Unresolved!" << endl;
+        cout << "Unsolved!" << endl;
     }
 
     if (debug) {

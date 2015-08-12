@@ -84,7 +84,7 @@ class Board {
     }
     void output_board() const;
     void output(ostream &os) const;
-    int resolve();
+    int solve();
 };
 
 static string pair_str(const char *title, int a, int b)
@@ -180,7 +180,7 @@ bool Board::search(int npos)
     return false;
 }
 
-int Board::resolve()
+int Board::solve()
 {
     fill(_board.begin(), _board.end(), 0);
     _step.clear();
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
         assert(1 <= p && p <= 26 && 1 <= q && q <= 26);
 
         Board B(q, p);
-        B.resolve();
+        B.solve();
 
         if (debug) B.output_board();
 

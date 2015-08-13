@@ -128,15 +128,15 @@ ULL Schedule::optimize()
                 << endl;
         }
 
-        // 檢查往後幾週的生產成本是否高於使用本週的成本+倉儲成本
-        // 取得該週的運送量
+        // 檢查往後幾週的生產成本是否高於使用本週的單位成本+倉儲成本
+        // 若是則使用這個新的單位成本
         while (++it != _w.end()) {
             cost += _s;             // 累計每單位成本: 每週增加倉儲成本
 
             Weekly &w1 = *(*it);
             if (cost >= w1.cost()) break;
 
-            // 使用 w 這週的每單位成本(已含倉儲成本)
+            // 使用 w 這週的單位成本(已含倉儲成本)
             total_cost += cost * w1.deliver();
             if (debug) {
                 cout << "Total cost: " << total_cost
@@ -152,16 +152,6 @@ ULL Schedule::optimize()
 }
 
 //---------------------------------------------------------------------------
-
-// dist: 所關牛的閘門之間最少的距離
-static bool check(int dist)
-{
-    if (debug) cout << "dist=" << dist << endl;
-    int n = 1;      // 已用閘門數(每一閘門關一頭牛)
-
-    if (debug) cout << "--> dist=" << dist << endl;
-    return true;
-}
 
 int main(int argc, char *argv[])
 {

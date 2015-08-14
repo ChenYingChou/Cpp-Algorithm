@@ -83,7 +83,7 @@ class Board {
         initialize();
     }
     void output_board() const;
-    void output(ostream &os) const;
+    string str() const;
     int solve();
 };
 
@@ -115,21 +115,21 @@ void Board::output_board() const
     cout << endl << endl;
 }
 
-void Board::output(ostream &os) const
+string Board::str() const
 {
     // impossible
-    if (_step.size() == 0) {
-        os << "impossible" << endl;
-        return;
-    }
+    if (_step.size() == 0) return "impossible";
+
+    stringstream os;
 
     // A1B3C1A2B4C2A3B1C3A4B2C4
     for (int i = 0; i < _step.size(); i++) {
         int r = _step[i] / _cols;
         int c = _step[i] % _cols;
-        cout << (char)('A'+r) << (char)('1'+c);
+        os << (char)('A'+r) << (char)('1'+c);
     }
-    os << endl;
+
+    return os.str();
 }
 
 bool Board::search(int npos)
@@ -145,8 +145,7 @@ bool Board::search(int npos)
     if (_step.size() >= _size) return true;
 
     if (debug > 1) {
-        cout << "Enter(" << _step.size() << "):";
-        output(cout);
+        cout << "Enter(" << _step.size() << "):" << str() << endl;
         if (debug > 2) output_board();
     }
 
@@ -173,8 +172,7 @@ bool Board::search(int npos)
     _step.pop_back();
 
     if (debug > 1) {
-        cout << "Return(" << _step.size() << "): ";
-        output(cout);
+        cout << "Return(" << _step.size() << "): " << str() << endl;
     }
 
     return false;
@@ -185,6 +183,7 @@ int Board::solve()
     fill(_board.begin(), _board.end(), 0);
     _step.clear();
 
+    //for (int n = (_size+1)/2; --n >= 0;) {
     for (int n = 0, sz2 = (_size+1)/2; n < sz2; n++) {
         if (search(n)) {
             assert(_step.size() > 0);
@@ -221,8 +220,7 @@ int main(int argc, char *argv[])
         if (debug) B.output_board();
 
         cout << "Scenario #" << i << ":" << endl;
-        B.output(cout);
-        cout << endl;
+        cout << B.str() << endl << endl;
     }
 
     return 0;

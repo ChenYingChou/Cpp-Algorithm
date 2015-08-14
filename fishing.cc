@@ -157,7 +157,6 @@ class Lake {
     Lake(const PLake p) { *this = *p; }
     Lake(int id, int fishes, int reduce, int trip_next) :
         _id(id), _fishes(fishes), _reduce(reduce), _trip_next(trip_next) { }
-    Lake& operator= (const Lake &x);
     void set_trip_next(int ntime) { _trip_next = ntime; }
     int id() const { return _id; }
     int fishes() const { return _fishes; }
@@ -179,18 +178,8 @@ string Lake::str() const
     return os.str();
 }
 
-Lake& Lake::operator= (const Lake &x)
-{
-    if (this != &x) {
-        _id = x._id;
-        _fishes = x._fishes;
-        _reduce = x._reduce;
-        _trip_next = x._trip_next;
-    }
-    return *this;
-}
-
 // 返回最大消耗時間單位(直到漁獲期望值為零)
+// 最後不足 _reduce 個也要算一個單位
 int Lake::max_consume_time() const
 {
     return _fishes == 0 ? 0 :
@@ -215,9 +204,9 @@ int Lake::consume_time(int n)
     if (k > n) k = n;
 
     // _fishes + (_fishes-_reduce) + ... + (_fishes - (k-1)*_reduce)
-    // => _fishes * k - _reduce * Σ(1..k-1)
-    // => _fishes * k - _reduce * (k-1) * k / 2
-    int fs = k * _fishes - _reduce * k * (k-1) / 2;
+    // => k * _fishes - Σ(1..k-1) * _reduce
+    // => k * _fishes - (k-1) * k / 2 * _reduce
+    int fs = k * _fishes - (k * (k-1) / 2) * _reduce;
 
     _fishes -= k * _reduce;
     if (_fishes < 0) _fishes = 0;

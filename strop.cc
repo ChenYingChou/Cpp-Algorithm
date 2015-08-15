@@ -185,7 +185,7 @@ class StringOP {
     }
 
     int Get_Int();          // 其中N，X，L可由find与rfind操作表达式构成
-    string Get_Str();  // S，S1，S2可由copy与add操作表达式
+    string Get_Str();       // S，S1，S2可由copy与add操作表达式
 
     string copy();
     string add();
@@ -198,9 +198,7 @@ class StringOP {
     string ItemStr(int N, const string &s);
 
   public:
-    void add_string(const string &s) {
-        _item.push_back(s);
-    }
+    void add_string(const string &s) { _item.push_back(s); }
     string str() { return trim(_ss.str()); }
     void clear() { _ss.str(""); _ss.clear(); _stack.clear(); }
     void printall();
@@ -303,11 +301,12 @@ string StringOP::add()
         int n1 = str_to_int(S1);
         int n2 = str_to_int(S2);
         if (n1 < 100000 && n2 < 100000) {
+            string s = int_to_str(n1+n2);
             if (debug) {
                 _ss << "add(" << n1 << ", " << n1 << ") = "
-                    << (n1+n2) << endl;
+                    << s << endl;
             }
-            return int_to_str(n1+n2);
+            return s;
         }
     }
 

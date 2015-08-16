@@ -317,6 +317,7 @@
 #include <sstream>
 #include <algorithm>
 #include <vector>
+#include <string.h>
 #include <assert.h>
 
 using namespace std;
@@ -324,6 +325,8 @@ using namespace std;
 #if !defined(nullptr)
   #define nullptr 0
 #endif
+
+static int debug;
 
 //--------------------------------------------------------------------------
 
@@ -336,6 +339,7 @@ const int MAX_ATTACKS = 10000;
 class City;
 class Weapon;
 class Warrior;
+class HeadQuarter;
 
 typedef vector<City> city_v;
 typedef vector<Weapon*> weapon_v;
@@ -344,8 +348,8 @@ typedef vector<Warrior*> warrior_v;
 const int NUM_HQ = 3;
 enum flag_t                                     // 總部:(無),紅軍,藍軍
     { _none_, _red_, _blue_ };
-const char *FLAG_NAME[NUM_HQ] =
-    { "none", "red", "blue" };
+const char *FLAG_NAME[NUM_HQ+1] =
+    { "none", "red", "blue", "none" };
 
 const int NUM_WARRIOR = 5;
 enum warrior_t                                  // 武士:龍,忍者,冰人,獅,狼
@@ -362,6 +366,7 @@ const char *WEAPON_NAME[NUM_WEAPON] =
 static int Warrior_Attacks[NUM_WARRIOR];        // input: 各武士初始攻擊力
 static int Warrior_Elements[NUM_WARRIOR];       // input: 各武士初始生命力
 
+static int N;                                   // 多少城市
 static int R;                                   // 弓箭固定攻擊力
 static int K;                                   // 獅子的減少忠誠度
 
@@ -369,12 +374,20 @@ static int Hour;                                // 戰場時間: 時
 static int Mins;                                // 分
 
 static city_v BG;           // Battle Ground[]: 0:紅軍, 1..N:城市, N+1:藍軍
+
+//--------------------------------------------------------------------------
+static ostream& output_timer();
+static ostream& output_HQ(const HeadQuarter *hq);
+static ostream& output_warrior(const Warrior *w);
+static ostream& output_warrior(const Warrior *w, const string &action);
+static Weapon * weapon_gen(Warrior *owner, int id);
 //--------------------------------------------------------------------------
 
 // 總部
 class HeadQuarter {
   private:
     flag_t _flag;                       // red, blue
+    int _source;                        // 總部所屬城市(red:0, blue:N+1)
     int _target;                        // 佔領目標城市(red:N+1, blue:0)
     bool _alive;
     int _elements;                      // 總部的生命元
@@ -384,32 +397,24 @@ class HeadQuarter {
     warrior_v _warriors;                // 武士物件指標陣列
 
   public:
-    HeadQuarter(flag_t flag, int initElem, int target, const int warrior_id[]);
+    HeadQuarter(flag_t flag, int initElem, int source, int target, const int warrior_id[]);
     ~HeadQuarter();
     int count() const { return _count; }
     bool alive() const { return _alive; }
     flag_t flag() const { return _flag; }
+    int source() const { return _source; }
     int target() const { return _target; }
+    int elements() const { return _elements; }
     const char * name() const { return FLAG_NAME[_flag]; }
-    ostream& title();
+    const char * opponent_name() const { return FLAG_NAME[NUM_HQ-_flag]; }
+    void add_elements(int n) { _elements += n; }
+    void lost_battle();
     int generate();
     int run_away();
     int forward();
+    void report() const;
+    void report_warriors() const;
 };
-
-//--------------------------------------------------------------------------
-
-static ostream& output_timer()
-{
-    return cout << setfill('0') << setw(3) << Hour
-        << setw(2) << Mins
-        << ' ';
-}
-
-static ostream& output_HQ(const HeadQuarter *hq)
-{
-    return output_timer() << hq->name() << ' ';
-}
 
 //--------------------------------------------------------------------------
 
@@ -422,15 +427,17 @@ private:
     warrior_v _warriors;                // 武士物件指標陣列
     int _elements;                      // 生命元
 public:
-    City(int id) : _id(id), _flag(_none_), _last_winner(_none_) {}
+    City(int id) : _id(id), _flag(_none_), _last_winner(_none_), _elements(0) {}
     flag_t flag() const { return _flag; }
     flag_t last_winner() const { return _last_winner; }
     int elements() const { return _elements; }
     void set_flag(flag_t value) { _flag = value; }
-    void set_elements(int value) { _elements = value; }
-    int take_away_elements() { int result = _elements; _elements = 0; return result; }
-    void battle_winner(flag_t value) {
-        if (value == _last_winner) _flag = value; else _last_winner = value;
+    void add_elements(int value) { _elements += value; }
+    void take_away_elements();
+    flag_t fight(flag_t attacker);
+    void fight_winner(flag_t value) {
+        if (_last_winner != _none_ && _last_winner == value) _flag = value;
+        _last_winner = value;
     }
     bool leave(Warrior *w) {
         for (warrior_v::iterator it = _warriors.begin(); it != _warriors.end(); ++it) {
@@ -529,7 +536,7 @@ class Warrior {
   public:
     Warrior(HeadQuarter *hq, int id, warrior_t nWarrior, int elements)
     : _hq(hq), _id(id), _species(nWarrior), _elements(elements),
-      _loyalty(0), _morale(0), _fightback(true) {
+      _loyalty(0), _morale(0), _fightback(true), _city(0) {
         _atk = Warrior_Attacks[nWarrior];
         _weapons.resize(NUM_WEAPON, nullptr);
     }
@@ -538,34 +545,55 @@ class Warrior {
     int id() const { return _id; }
     int species() const { return _species; }
     const char * species_name() const { return WARRIOR_NAME[_species]; }
-    int elements() const { return _elements; }
     int atk() const { return _atk; }
     int loyalty() const { return _loyalty; }
     double morale() const { return _morale; }
-    bool fightback() const { return _fightback; }
     int city() const { return _city; }
     int target() const { return _hq->target(); }
+    int elements() const { return _elements; }
+    int elements(int value) { return _elements += value; }
+    bool fightback() const { return _fightback; }
+    bool has_boom() { return _weapons[_bomb_] != nullptr; }
     void set_elements(int n) { _elements = n; }
     void set_atk(int n) { _atk = n; }
     void set_loyalty(int n) { _loyalty = n; }
     void set_morale(double n) { _morale = n; }
     void set_fightback(bool b) { _fightback = b; }
-    void set_city(int n) { _city = n; }
-    int elements(int value) { return _elements += value; }
+    virtual bool run_away() { return false; }
     virtual void print_characters() {}
+
+    void set_city(int n) {
+        if (n != _city) BG[_city].leave(this);
+        _city = n;
+        BG[_city].enter(this);
+    }
+    void earn_hq_elements(int n) {
+        _hq->add_elements(n);
+        // 001:40 blue dragon 2 earned 10 elements for his headquarter
+        output_warrior(this) << "earned " << n
+            << " elements for his headquarter" << endl;
+    }
     string get_weapons() const {
         // has arrow(2),bomb,sword(23)
+        // has no weapon
         ostringstream os;
+        os << "has ";
         bool first = true;
         for (int i = _weapons.size(); --i >= 0;) {  // 指定倒序輸出:箭、炸彈、刀
             if (_weapons[i]) {
-                os  << (first ? "has " : ",") << _weapons[i]->report();
-                first = false;
+                if (first) first = false; else os << ',';
+                os  << _weapons[i]->report();
             }
         }
+        if (first) os << "no weapon";
         return os.str();
     }
+    void report() const {
+        // 000:55 blue wolf 2 has arrow(2),bomb,sword(23)
+        output_warrior(this, get_weapons());
+    }
     virtual ~Warrior() {
+        BG[_city].leave(this);
         for (int i = 0; i < _weapons.size(); i++) {
             delete _weapons[i];
         }
@@ -575,8 +603,12 @@ class Warrior {
         Weapon *w = _weapons[_sword_];
         return w ? w->attack() : 0;
     }
-    int fightback_attack() const { return _fightback ? _atk/2 + sword_attack() : 0; }
-    int forecast_attack() const { return _atk + sword_attack(); }
+    int fightback_attack() const {
+        return _elements > 0 && _fightback ? _atk/2 + sword_attack() : 0;
+    }
+    int forecast_attack() const {
+        return _elements > 0 ? _atk + sword_attack() : 0;
+    }
     virtual int attack(Warrior *opponent) {
         int atk1 = forecast_attack();
         if (opponent->elements(-atk1) > 0) {
@@ -596,18 +628,31 @@ class Warrior {
         City &C1 = BG[_city];
         C1.leave(this);
 
+        if (debug) {
+            cout << ">>> forward: city: " << _city
+                << " to city: " << _city+dir
+                << ", target: " << target()
+                << endl;
+        }
+
         _city += dir;
         City &C2 = BG[_city];
         C2.enter(this);
 
-        // 武士前进到某一城市
-        // 000:10 red iceman 1 marched to city 1 with 20 elements and force 30
-        // 武士抵达敌军司令部：
-        // 001:10 red iceman 1 reached blue headquarter with 20 elements and force 30
+        ostream &os = output_warrior(this);
+        if (_city == target()) {
+            // 武士抵达敌军司令部：
+            // 001:10 red iceman 1 reached blue headquarter with 20 elements and force 30
+            os << "reached " << _hq->opponent_name() << " headquarter";
+        } else {
+            // 武士前进到某一城市
+            // 000:10 red iceman 1 marched to city 1 with 20 elements and force 30
+            os << "marched to city " << _city;
+        }
+        os << " with " << elements() << " elements and force " << atk() << endl;
+
         return 1;
     }
-    virtual bool run_away() { return false; }
-    bool has_boom() { return _weapons[_bomb_] != nullptr; }
     bool remove_weapon(Weapon *w) {
         weapon_t wt = w->types();
         if (_weapons[wt] == w) {
@@ -627,29 +672,13 @@ class Warrior {
     void take_away_weapons(Warrior *opponent) { // 拿走對手的武器(自己沒有的)
         for (int i = 0; i < NUM_WEAPON; i++) {
             Weapon *w = opponent->_weapons[i];
-            if (w) {
-                if (_weapons[i] == nullptr) {
-                    _weapons[i] = w;
-                    opponent->_weapons[i] = nullptr;
-                }
+            if (w != nullptr && _weapons[i] == nullptr) {
+                _weapons[i] = w;
+                opponent->_weapons[i] = nullptr;
             }
         }
     }
 };
-
-// 因為會使用到 Weapon::atk(), 故必須在 class Weapon 之後定義本函式
-static Weapon * weapon_gen(Warrior *owner, int id)
-{
-    switch(id % NUM_WEAPON) {
-      case _sword_: // 擁有武士20%的攻擊力
-        return new Sword(owner, owner->atk()/5);
-      case _bomb_:
-        return new Bomb(owner, 0);
-      case _arrow_: // 攻擊力固定為R(輸入)
-        return new Arrow(owner, R);
-    }
-    assert(0);  // impossible!
-}
 
 // 龍
 class Warrior_Dragon: public Warrior {
@@ -763,32 +792,15 @@ class Warrior_Wolf: public Warrior {
     }
 };
 
-// 延後定義 Weapon::change_owner(), 因為會用到 Warrior::{add,remove}_weapon()
-void Weapon::change_owner(Warrior *new_owner)
-{
-    if (_owner) _owner->remove_weapon(this);
-    _owner = new_owner;
-    if (_owner) _owner->add_weapon(this);
-}
-
-static ostream& output_warrior(const Warrior *w)
-{
-    return output_HQ(w->hq()) << w->species_name() << ' ' << w->id() << ' ';
-}
-
-static ostream& output_warriors(const Warrior *w, const char *action)
-{
-    return output_warrior(w) << action << endl;
-}
-
 //--------------------------------------------------------------------------
 
 // class HeadQuarter; // 宣告放在前面, 會被其他class參考到
 
-HeadQuarter::HeadQuarter(flag_t flag, int initElem, int target, const int warrior_id[])
-: _flag(flag), _alive(true), _elements(initElem), _count(0), _next_id(0), _target(target)
+HeadQuarter::HeadQuarter(flag_t flag, int initElem, int source, int target, const int warrior_id[])
+  : _flag(flag), _alive(true), _elements(initElem), _count(0),
+    _next_id(0), _source(source), _target(target)
 {
-    std::copy_n(warrior_id, NUM_WARRIOR, _warrior_id);
+    std::copy(warrior_id, warrior_id+NUM_WARRIOR, _warrior_id);
 }
 
 HeadQuarter::~HeadQuarter()
@@ -797,6 +809,13 @@ HeadQuarter::~HeadQuarter()
         delete *it;
     }
     _warriors.clear();
+}
+
+void HeadQuarter::lost_battle()
+{
+    _alive = false;
+    // 司令部被占领: 003:10 blue headquarter was taken
+    output_timer() << name() << " headquarter was taken" << endl;
 }
 
 int HeadQuarter::generate()
@@ -832,10 +851,11 @@ int HeadQuarter::generate()
         break;
     }
 
+    pw->set_city(_source);
     _warriors.push_back(pw);
 
-    // 1) 武士降生: 000:00 blue lion 1 born
-    output_warriors(pw, "born");
+    // 武士降生: 000:00 blue lion 1 born
+    output_warrior(pw, "born");
     pw->print_characters();
 
     return wid;
@@ -848,7 +868,7 @@ int HeadQuarter::run_away()
         Warrior *w = _warriors[i];
         if (w->run_away()) {
             // 000:05 blue lion 1 ran away
-            output_warriors(w, "ran away");
+            output_warrior(w, "ran away");
             _warriors.erase(_warriors.begin()+i);
             delete w;
             n++;
@@ -871,59 +891,257 @@ int HeadQuarter::forward()
     return nTarget;
 }
 
+void HeadQuarter::report() const
+{
+    // 000:50 100 elements in red headquarter
+    output_timer() << elements() << " elements in "
+        << name() << " headquarter" << endl;
+}
+
+void HeadQuarter::report_warriors() const
+{
+    for (warrior_v::const_iterator it = _warriors.begin(); it != _warriors.end(); ++it) {
+        (*it)->report();
+    }
+}
+
 //--------------------------------------------------------------------------
 
-static void run(int elements, int nCities, int mins)
+// 延後定義: 因為會使用到 Weapon::atk()
+static Weapon * weapon_gen(Warrior *owner, int id)
 {
-    BG.reserve(nCities+2);
-    for (int i = 0; i < nCities+2; i++) {
+    switch(id % NUM_WEAPON) {
+      case _sword_: // 擁有武士20%的攻擊力
+        return new Sword(owner, owner->atk()/5);
+      case _bomb_:
+        return new Bomb(owner, 0);
+      case _arrow_: // 攻擊力固定為R(輸入)
+        return new Arrow(owner, R);
+    }
+    assert(0);  // impossible!
+}
+
+// 延後定義: 因為會用到 Warrior::{add,remove}_weapon()
+void Weapon::change_owner(Warrior *new_owner)
+{
+    if (_owner) _owner->remove_weapon(this);
+    _owner = new_owner;
+    if (_owner) _owner->add_weapon(this);
+}
+
+// 延後定義: 因為會用到 Warrior::earn_hq_elements()
+// 如果某个城市中只有一个武士，那么该武士取走该城市中的所有生命元，
+// 并立即将这些生命元传送到其所属的司令部
+void City::take_away_elements()
+{
+    if (_warriors.size() == 1) {
+        Warrior *w = _warriors[0];
+        w->earn_hq_elements(_elements);
+        _elements = 0;
+    }
+}
+
+// 參見 line 28~48 規則
+/*
+    如果武士在战斗中杀死敌人 (不论是主动进攻杀死还是反击杀死)，则其司令部会立即
+    向其发送8个生命元作为奖励，使其生命值增加8。当然前提是司令部得有8个生命元。
+    如果司令部的生命元不足以奖励所有的武士，则优先奖励距离敌方司令部近的武士。
+
+    如果某武士在某城市的战斗中杀死了敌人，则该武士的司令部立即取得该城市中所有
+    的生命元。注意，司令部总是先完成全部奖励工作，然后才开始从各个打了胜仗的城
+    市回收生命元。对于因司令部生命元不足而领不到奖励的武士，司令部也不会在取得
+    战利品生命元后为其补发奖励。
+
+    如果一次战斗的结果是双方都幸存 (平局)，则双方都不能拿走发生战斗的城市的生
+    命元。
+
+    城市可以插旗子，一开始所有城市都没有旗子。在插红旗的城市，以及编号为奇数的
+    无旗城市，由红武士主动发起进攻。在插蓝旗的城市，以及编号为偶数的无旗城市，
+    由蓝武士主动发起进攻。
+
+    当某个城市有连续两场战斗都是同一方的武士杀死敌人(两场战斗之间如果有若干个战
+    斗时刻并没有发生战斗，则这两场战斗仍然算是连续的；但如果中间有平局的战斗，
+    就不算连续了) ，那么该城市就会插上胜方的旗帜，若原来插着败方的旗帜，则败方
+    旗帜落下。旗帜一旦插上，就一直插着，直到被敌人更换。一个城市最多只能插一面
+    旗帜，旗帜没被敌人更换前，也不会再次插同颜色的旗。
+
+*/
+flag_t City::fight(flag_t attacker)
+{
+    flag_t winner = _none_;
+    if (_warriors.size() > 1) {
+        Warrior *a = _warriors[0];
+        Warrior *b = _warriors[1];
+        if (a->flag() != attacker) swap(a, b);
+        assert(a->flag() != b->flag());
+
+        int result = a->attack(b);
+        if (result) winner = result > 0 ? a->flag() : b->flag();
+        fight_winner(winner);
+    }
+    return winner;
+}
+
+static ostream& output_timer()
+{
+    return cout << setfill('0') << setw(3) << Hour
+        << ':' << setw(2) << Mins
+        << ' ';
+}
+
+static ostream& output_HQ(const HeadQuarter *hq)
+{
+    return output_timer() << hq->name() << ' ';
+}
+
+static ostream& output_warrior(const Warrior *w)
+{
+    return output_HQ(w->hq()) << w->species_name() << ' ' << w->id() << ' ';
+}
+
+static ostream& output_warrior(const Warrior *w, const string &action)
+{
+    return output_warrior(w) << action << endl;
+}
+
+//--------------------------------------------------------------------------
+
+// 每个城市产出10个生命元
+static void add_city_elements(int elems)
+{
+    for (int i = 1; i <= N; i++) {
+        BG[i].add_elements(elems);
+    }
+}
+
+// 如果某个城市中只有一个武士，那么该武士取走该城市中的所有生命元，
+// 并立即将这些生命元传送到其所属的司令部
+static void take_away_city_elements()
+{
+    for (int i = 1; i <= N; i++) {
+        BG[i].take_away_elements();
+    }
+}
+
+// 在插红旗的城市，以及编号为奇数的无旗城市，由红武士主动发起进攻。
+// 在插蓝旗的城市，以及编号为偶数的无旗城市，由蓝武士主动发起进攻。
+// 戰鬥規則參見 line 28~48 說明
+static void launch_city_fight()
+{
+    for (int i = 1; i <= N; i++) {
+        City &C = BG[i];
+        flag_t attacker = C.flag();
+        if (attacker == _none_) attacker = i & 1 ? _red_ : _blue_;
+        flag_t winner = C.fight(attacker);
+        // 記錄這個城市誰贏, 事後再算分數
+        // todo ...
+    }
+}
+
+// 在每个小时的第35分，拥有arrow的武士放箭，对敌人造成伤害。放箭事件应算发生
+// 在箭发出的城市。注意，放箭不算是战斗，因此放箭的武士不会得到任何好处。武士
+// 在没有敌人的城市被箭射死也不影响其所在城市的旗帜更换情况。
+static void launch_arrow_shoot()
+{
+}
+
+static void launch_bomb()
+{
+}
+
+static void run(int elements, int mins)
+{
+    BG.reserve(N+2);
+    for (int i = 0; i < N+2; i++) {
         BG.push_back(City(i));
     }
 
     const int red_id[] = { _iceman_, _lion_, _wolf_, _ninja_, _dragon_ };
-    HeadQuarter redHQ(_red_, elements, nCities+1, red_id);
+    HeadQuarter redHQ(_red_, elements, 0, N+1, red_id);
 
     const int blue_id[] = { _lion_, _dragon_, _ninja_, _iceman_, _wolf_ };
-    HeadQuarter blueHQ(_blue_, elements, 0, blue_id);
+    HeadQuarter blueHQ(_blue_, elements, N+1, 0, blue_id);
 
+    if (debug) {
+        cout << "Time: " << mins
+            << ", Cities: " << N
+            << ", Elements: " << elements
+            << endl;
+    }
+
+/*
+   输出事件时：
+    首先按时间顺序输出；
+
+    同一时间发生的事件，按发生地点从西向东依次输出. 武士前进的事件, 算是发生在
+    目的地。(即指 City1...CityN)
+
+    在一次战斗中有可能发生上面的 6 至 11 号事件。这些事件都算同时发生，其时间就
+    是战斗开始时间。一次战斗中的这些事件，序号小的应该先输出。
+
+    两个武士同时抵达同一城市，则先输出红武士的前进事件，后输出蓝武士的。
+
+    显然，13号事件发生之前的一瞬间一定发生了12号事件。输出时，这两件事算同一时
+    间发生，但是应先输出12号事件
+
+    虽然任何一方的司令部被占领之后，就不会有任何事情发生了。但和司令部被占领同
+    时发生的事件，全都要输出。
+ */    
     int n = 0;
     while (n < mins && redHQ.alive() && blueHQ.alive()) {
-
         Hour = n / 60;
         Mins = n % 60;
         switch(Mins) {
-        case 0:
+        case 0: // 制造武士
             redHQ.generate();
             blueHQ.generate();
             n += 5;
             break;
-        case 5:
+        case 5: // 该逃跑的lion就在这一时刻逃跑了
             redHQ.run_away();
             blueHQ.run_away();
             n += 5;
             break;
-        case 10:
+        case 10: // 所有的武士朝敌人司令部方向前进一步
+            if (redHQ.forward() >= 2) {
+                blueHQ.lost_battle();
+            } else if (blueHQ.forward() >= 2) {
+                redHQ.lost_battle();
+            }
             n += 10;
             break;
-        case 20:
+        case 20: // 每个城市产出10个生命元
+            add_city_elements(10);
             n += 10;
             break;
-        case 30:
+        case 30: // 如果某个城市中只有一个武士，那么该武士取走该城市中的
+                 // 所有生命元，并立即将这些生命元传送到其所属的司令部
+            take_away_city_elements();
             n += 5;
             break;
-        case 35:
+        case 35: // 拥有arrow的武士放箭，对敌人造成伤害...
+                 // 暫不回收死亡者, 在40分的戰鬥結果後才收回
+            launch_arrow_shoot();
             n += 3;
             break;
-        case 38:
+        case 38: //拥有bomb的武士评估是否应该使用bomb。如果是，
+                 // 就用bomb和敌人同归于尽
+            launch_bomb();
             n += 2;
             break;
-        case 40:
+        case 40: // 在有两个武士的城市，会发生战斗...
+                 // 戰鬥完後回收死亡的戰士及其武器
+            launch_city_fight();
             n += 10;
             break;
-        case 50:
+        case 50: // 司令部报告它拥有的生命元数量
+            redHQ.report();
+            blueHQ.report();
             n += 5;
             break;
-        case 55:
+        case 55: // 每个武士报告其拥有的武器情况
+            redHQ.report_warriors();
+            blueHQ.report_warriors();
             n += 5;
             break;
         }
@@ -934,12 +1152,17 @@ static void run(int elements, int nCities, int mins)
 
 int main ( int argc, char *argv[] )
 {
-    int num_case;
+    for (int n = 1; n < argc; n++) {
+        if (strncmp(argv[n], "-d", 2) == 0) {
+            debug += strlen(&argv[n][1]);
+        }
+    }
 
+    int num_case;
     cin >> num_case;
     for (int n = 1; n <= num_case; n++) {
         int M;  // 司令部一開始的生命元
-        int N;  // 多少城市
+      //int N;  // 多少城市
       //int R;  // 弓箭攻擊力(全域變數)
       //int K;  // 獅子忠誠度遞減值(全域變數)
         int T;  // 多少分鐘
@@ -959,8 +1182,8 @@ int main ( int argc, char *argv[] )
             Warrior_Attacks[i] = v;
         }
 
-        cout << "Case:" << n << endl;
-        run(M, N, T);
+        cout << "Case " << n << ':' << endl;
+        run(M, T);
     }
 
     return 0;

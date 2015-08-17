@@ -418,6 +418,7 @@ class HeadQuarter {
     void remove(Warrior *w);
     void remove_dead();
     void lost_battle();
+    void forward();
     int generate();
     void report() const;
 };
@@ -430,22 +431,20 @@ private:
     int _id;                            // 城市編號:1~N
     flag_t _flag;                       // none, red, blue
     flag_t _last_winner;                // 前次勝利者
-    warrior_v _warriors;                // 紅藍武士物件指標陣列[2]
+    warrior_v _warriors[NUM_HQ];        // 紅藍武士物件指標陣列[2]
     int _elements;                      // 生命元
     int _occupied;                      // 城市(0,N+1)時代表總部被攻佔的次數
 public:
-    City(int id) : _id(id), _flag(_none_), _last_winner(_none_), _elements(0), _occupied(0) {
-        _warriors.resize(NUM_HQ, nullptr);
-    }
+    City(int id) : _id(id), _flag(_none_), _last_winner(_none_), _elements(0), _occupied(0) {}
     flag_t flag() const { return _flag; }
     flag_t last_winner() const { return _last_winner; }
     int id() const { return _id; }
     int elements() const { return _elements; }
     int occupied() const { return _occupied; }
     int occupy() { return ++_occupied; }
-    Warrior * warrior(flag_t n) const { return _warriors[n]; }
     void set_flag(flag_t value) { _flag = value; }
     void add_elements(int value) { _elements += value; }
+    void report();
     void take_away_elements();
     bool leave(Warrior *w);
     bool enter(Warrior *w);
@@ -456,6 +455,10 @@ public:
         if (changed) _flag = winner;
         _last_winner = winner;
         return changed;
+    }
+    warrior_v & warriors(flag_t n) { return _warriors[n]; }
+    Warrior * warrior(flag_t n) const {
+        return _warriors[n].size() ? _warriors[n][0] : nullptr;
     }
 };
 
@@ -554,7 +557,6 @@ class Warrior {
     int move() const { return _HQ->move(); }
     int id() const { return _id; }
     int species() const { return _species; }
-    const char * species_name() const { return WARRIOR_NAME[_species]; }
     int atk() const { return _atk; }
     int loyalty() const { return _loyalty; }
     double morale() const { return _morale; }
@@ -576,6 +578,11 @@ class Warrior {
     virtual void print_characters() {}
     virtual void cheer() const {}
 
+    string name() const {
+        ostringstream ss;
+        ss << _HQ->name() << ' ' << WARRIOR_NAME[_species] << ' ' << _id;
+        return ss.str();
+    }
     void set_city(int n) {
         if (n != _city) BG[_city].leave(this);
         _city = n;
@@ -603,8 +610,7 @@ class Warrior {
 
         // (6) 武士主动进攻
         // 000:40 red iceman 1 attacked blue lion 1 in city 1 with 20 elements and force 30
-        output_warrior(this) << "attacked "
-            << opponent->species_name() << ' ' << opponent->id()
+        output_warrior(this) << "attacked " << opponent->name()
             << " in city " << city()
             << " with " << hp()
             << " elements and force " << atk()      // 是否要包含武器的攻擊力?
@@ -617,7 +623,7 @@ class Warrior {
             // (7) 武士反击
             // 001:40 blue dragon 2 fought back against red lion 2 in city 1 
             output_warrior(opponent) << "fought back against "
-                << species_name() << ' ' << id()
+                << name()
                 << " in city " << city()
                 << endl;
 
@@ -660,16 +666,13 @@ class Warrior {
         City &C1 = BG[_city];
         C1.leave(this);
 
-        if (debug) {
-            cout << ">>> forward: city: " << _city
-                << " to city: " << _city+move()
-                << ", target: " << target()
-                << endl;
-        }
-
         _city += move();
         City &C2 = BG[_city];
-        
+        C2.enter(this);
+
+        return 1;
+    }
+    int report_forward() {
         ostream &os = output_warrior(this);
         if (_city == target()) {
             // (12) 武士抵达敌军司令部
@@ -682,13 +685,14 @@ class Warrior {
         }
         os << " with " << hp() << " elements and force " << atk() << endl;
 
-        if (_city == target()) {
-            if (C2.occupy() >= 2) {
+        if (_city == target()) {        // 已到敵軍總部
+            City &C = BG[_city];
+            if (C.occupy() >= 2) {      // 增加抵達計數, 超過2則算佔領敵方總部
                 flag_t opponent = Opponent(flag());
-                ::HQ[opponent]->lost_battle();
+                ::HQ[opponent]->lost_battle();      // (13) 宣告敵方總部被佔領
             }
-        } else {
-            C2.enter(this);
+            // 不可在此呼叫C.leave(this), 可能影響呼叫者使用城市迴圈的iterator
+            return -1;  // 由呼叫者決定是否將已達敵方總部的武士移除或其他處理
         }
         return 1;
     }
@@ -889,6 +893,13 @@ void HeadQuarter::lost_battle()
     output_timer() << name() << " headquarter was taken" << endl;
 }
 
+void HeadQuarter::forward()
+{
+    for (warrior_v::iterator it = _warriors.begin(); it != _warriors.end(); ++it) {
+        (*it)->forward();
+    }
+}
+
 int HeadQuarter::generate()
 {
     // 如果司令部中的生命元不足以制造某武士，那么司令部就等待，直到获得足够
@@ -968,28 +979,56 @@ void Weapon::change_owner(Warrior *new_owner)
 
 // 延後定義: 因為會用到 Warrior 類的內容
 
+void City::report()
+{
+    cout << "City[" << _id << "] elements: " << _elements
+        << " flag:" << FLAG_NAME[_flag]
+        << " winner:" << FLAG_NAME[_last_winner];
+    if (_occupied) cout << " occupied:" << _occupied;
+    for (flag_t n = _red_; n != _none_; n = flag_t(n+1)) {
+        warrior_v &wv = _warriors[n];
+        if (wv.size()) {
+            for (warrior_v::iterator it = wv.begin(); it != wv.end(); ++it) {
+                Warrior *w = *it;
+                if (w) {
+                    cout << ' ' << w->name();
+                } else {
+                    cout << ' ' << FLAG_NAME[n] << "(null)";
+                }
+            }
+        }
+    }
+    cout << endl;
+}
+
 // 如果某个城市中只有一个武士，那么该武士取走该城市中的所有生命元，
 // 并立即将这些生命元传送到其所属的司令部
 void City::take_away_elements()
 {
-    if (_elements <= 0) return;
-    for (flag_t n = _red_; n != _none_; n = flag_t(n+1)) {
-        if (_warriors[n] != nullptr && _warriors[Opponent(n)] == nullptr) {
-            _warriors[n]->earn_elements(_elements);
+    if (_elements > 0) {
+        Warrior *wRed = warrior(_red_);
+        Warrior *wBlue = warrior(_blue_);
+
+        if (wRed != nullptr && wBlue == nullptr) {
+            wRed->earn_elements(_elements);
             _elements = 0;
-            break;
+        } else if (wBlue != nullptr && wRed == nullptr) {
+            wBlue->earn_elements(_elements);
+            _elements = 0;
         }
     }
 }
 
 // 每一城市同時最多只有紅方或藍方各一名武士
-// 武士出城(到下一城市、死亡、逃走消失)
+// 武士出城(到下一城市、佔領敵方總部、死亡、逃走消失)
 bool City::leave(Warrior *w)
 {
-    int n = w->flag();
-    if (_warriors[n] == w) {
-        _warriors[n] = nullptr;
-        return true;
+    warrior_v &wv = _warriors[w->flag()];
+    for (warrior_v::iterator it = wv.begin(); it != wv.end(); ++it) {
+        if (*it == w) {
+            wv.erase(it);
+            return true;
+        }
     }
     return false;
 }
@@ -997,12 +1036,13 @@ bool City::leave(Warrior *w)
 // 武士進城
 bool City::enter(Warrior *w)
 {
-    int n = w->flag();
-    if (_warriors[n] != w) {
-        _warriors[n] = w;
-        return true;
+    assert(w != nullptr);
+    warrior_v &wv = _warriors[w->flag()];
+    for (warrior_v::iterator it = wv.begin(); it != wv.end(); ++it) {
+        if (*it == w) return false;
     }
-    return false;
+    wv.push_back(w);
+    return true;
 }
 
 // 城市中雙方各有一個武士則會發生戰鬥, 連續贏得2次即可插上己方的旗子
@@ -1010,20 +1050,23 @@ flag_t City::fight(flag_t attacker)
 {
     assert(attacker == _red_ || attacker == _blue_);
     flag_t winner = _none_;
+    flag_t opponent = Opponent(attacker);
 
-    if (_warriors[_red_] && _warriors[_blue_]) {
-        flag_t opponent = Opponent(attacker);
-        int result = _warriors[attacker]->attack(_warriors[opponent]);
+    Warrior *wAttacker = warrior(attacker);
+    Warrior *wOpponent = warrior(opponent);
+
+    if (wAttacker && wOpponent) {
+        int result = wAttacker->attack(wOpponent);
         if (result) {
             winner = result > 0 ? attacker : opponent;
             if (result & 1) {   // 戰鬥獲勝, 而非對手被己方的弓箭射死的
                 // (8) 武士战死
                 // 001:40 red lion 2 was killed in city 1
-                output_warrior(_warriors[Opponent(winner)])
+                output_warrior(result < 0 ? wAttacker : wOpponent)
                     << "was killed in city " << id() << endl;
             }
 
-            Warrior *w = _warriors[winner];
+            Warrior *w = result > 0 ? wAttacker : wOpponent;
 
             // (9) 武士欢呼
             w->cheer();
@@ -1059,7 +1102,7 @@ static ostream& output_HQ(const HeadQuarter *HQ)
 
 static ostream& output_warrior(const Warrior *w)
 {
-    return output_HQ(w->HQ()) << w->species_name() << ' ' << w->id() << ' ';
+    return output_timer() << w->name() << ' ';
 }
 
 static ostream& output_warrior(const Warrior *w, const string &action)
@@ -1069,6 +1112,7 @@ static ostream& output_warrior(const Warrior *w, const string &action)
 
 //--------------------------------------------------------------------------
 
+// 發生武士逃走事件
 static void run_away()
 {
     // 不包含兩端總部
@@ -1085,24 +1129,29 @@ static void run_away()
     }
 }
 
-// 武士前进的事件, 算是发生在目的地
-static void backward_check(flag_t who, int n)
-{
-    if (0 <= n && n < BG.size()) {
-        Warrior *w = BG[n].warrior(who);
-        if (w) w->forward();
-    }
-}
-
+// 武士前進事件: 以抵達目的地序順報告
 static void forward()
 {
-    int red_move = HQ[_red_]->move();
-    int blue_move = HQ[_blue_]->move();
+    // 先移動各武士: 已到敵軍總部的不動, 移動時改變其在各城市記錄, 但不報告
+    HQ[_red_]->forward();
+    HQ[_blue_]->forward();
 
-    // 要包含兩端總部
+    // 依城市順序(包含兩端總部)回報前進狀態: 到敵軍總部的會回報到達及佔領,
+    // 但移出城市動作則在report_forward()函式外, 因其會影響迴圈iterator
     for (int i = 0; i < BG.size(); i++) {
-        backward_check(_red_, i-red_move);
-        backward_check(_blue_, i-blue_move);
+        City &C = BG[i];
+        if (debug) C.report();
+        for (flag_t n = _red_; n != _none_; n = flag_t(n+1)) {
+            warrior_v &wv = C.warriors(n);
+            for (warrior_v::iterator it = wv.begin(); it != wv.end();) {
+                if ((*it)->report_forward() < 0) {  // 武士已抵達敵方總部
+                    // 以後沒事做, 且不再報告, 在此移除之, 注意 it 的變化
+                    it = wv.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
     }
 }
 
@@ -1129,15 +1178,16 @@ static void take_away_city_elements()
 // 戰鬥完後回收死亡的戰士及其武器
 static void launch_city_fight()
 {
+    // 先取得本次開戰前總部的生命元, 開戰過程中可能會改變生命元
     int RElems = HQ[_red_]->elements();
     int BElems = HQ[_blue_]->elements();
-    vector<flag_t> flags(N+1, _none_);      // 記錄每一城市誰贏
 
+    vector<flag_t> flags(N+1, _none_);      // 記錄每一城市誰贏
     for (int i = 1; i <= N; i++) {
         City &C = BG[i];
         flag_t attacker = C.flag();
         if (attacker == _none_) attacker = i & 1 ? _red_ : _blue_;
-        // 記錄這個城市誰贏, 事後再算分數
+        // 記錄這個城市誰贏, 事後再算獎勵
         flags[i] = C.fight(attacker);
     }
 
@@ -1146,33 +1196,35 @@ static void launch_city_fight()
     向其发送8个生命元作为奖励，使其生命值增加8。当然前提是司令部得有8个生命元。
     如果司令部的生命元不足以奖励所有的武士，则优先奖励距离敌方司令部近的武士。
 */
-    // 紅方發放獎勵
-    int nElems = 0;
-    for (int i = N; i >= 0 && nElems < RElems; i--) {
-        if (flags[i] == _red_) {
-            Warrior *w = BG[i].warrior(_red_);
-            assert(w != nullptr);
-            int n = min(8, RElems-nElems);
-            w->add_hp(n);
-            nElems += n;
+    {   // 紅方發放獎勵: 從大(靠近敵方總部)到小發放
+        int nElems = 0;
+        for (int i = N; i >= 0 && nElems < RElems; i--) {
+            if (flags[i] == _red_) {
+                Warrior *w = BG[i].warrior(_red_);
+                assert(w != nullptr);
+                int n = min(8, RElems-nElems);
+                w->add_hp(Element2HP(n));
+                nElems += n;
+            }
         }
+        HQ[_red_]->add_elements(-nElems);
     }
-    HQ[_red_]->add_elements(-nElems);
 
-    // 藍方發放獎勵
-    nElems = 0;
-    for (int i = 0; i <= N && nElems < BElems; i++) {
-        if (flags[i] == _blue_) {
-            Warrior *w = BG[i].warrior(_blue_);
-            assert(w != nullptr);
-            int n = min(8, BElems-nElems);
-            w->add_hp(n);
-            nElems += n;
+    {   // 藍方發放獎勵: 從小到大發放
+        int nElems = 0;
+        for (int i = 0; i <= N && nElems < BElems; i++) {
+            if (flags[i] == _blue_) {
+                Warrior *w = BG[i].warrior(_blue_);
+                assert(w != nullptr);
+                int n = min(8, BElems-nElems);
+                w->add_hp(Element2HP(n));
+                nElems += n;
+            }
         }
+        HQ[_blue_]->add_elements(-nElems);
     }
-    HQ[_blue_]->add_elements(-nElems);
 
-    // 回收死亡戰士
+    // 移除死亡戰士
     HQ[_red_]->remove_dead();
     HQ[_blue_]->remove_dead();
 }
@@ -1220,24 +1272,6 @@ static void run_case(int elements, int mins)
             << endl;
     }
 
-/*
-   输出事件时：
-    首先按时间顺序输出；
-
-    同一时间发生的事件，按发生地点从西向东依次输出. 武士前进的事件, 算是发生在
-    目的地。(即指 City1...CityN)
-
-    在一次战斗中有可能发生上面的 6 至 11 号事件。这些事件都算同时发生，其时间就
-    是战斗开始时间。一次战斗中的这些事件，序号小的应该先输出。
-
-    两个武士同时抵达同一城市，则先输出红武士的前进事件，后输出蓝武士的。
-
-    显然，13号事件发生之前的一瞬间一定发生了12号事件。输出时，这两件事算同一时
-    间发生，但是应先输出12号事件
-
-    虽然任何一方的司令部被占领之后，就不会有任何事情发生了。但和司令部被占领同
-    时发生的事件，全都要输出。
- */    
     int n = 0;
     while (n < mins && redHQ.alive() && blueHQ.alive()) {
         Hour = n / 60;

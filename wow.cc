@@ -369,7 +369,7 @@ inline flag_t Opponent(int n) { return flag_t(1-n); }
 inline int Element2HP(int n) { return n; }      // 1個生命元 = 1個生命力
 
 static int Warrior_Attacks[NUM_WARRIOR];        // input: 各武士初始攻擊力
-static int Warrior_Elements[NUM_WARRIOR];       // input: 產生武士所需生命力
+static int Warrior_Elements[NUM_WARRIOR];       // input: 產生武士所需生命元
 
 static int N;                                   // 有多少城市(不含總部)
 static int R;                                   // 弓箭的固定攻擊力
@@ -378,7 +378,7 @@ static int K;                                   // 獅子的減少忠誠度
 static int Hour;                                // 戰場時間: 時
 static int Mins;                                // 分
 
-static HeadQuarter *HQ[NUM_HQ];
+static HeadQuarter *HQ[NUM_HQ];                 // 總部物件指標陣列
 static city_v BG;           // Battle Ground[]: 0:紅軍, 1..N:城市, N+1:藍軍
 
 //--------------------------------------------------------------------------
@@ -494,7 +494,7 @@ class Sword: public Weapon {
     int attack() {      // 每次攻擊後會耗損80%
         int value = atk();
         set_atk(80 * value / 100);
-        _exhausted = atk() > 0;
+        _exhausted = (atk() <= 0);
         return value;
     }
     string status() const {
@@ -544,11 +544,12 @@ class Warrior {
     double _morale;                     // 士氣
     bool _fightback;                    // 受攻擊未陣亡時是否會反擊
     int _city;                          // 在那一城市
+    bool _idle;                         // 是否已到敵方總部(無所事事, 不參與攻擊)
   protected:
     weapon_v _weapons;                  // 每種武器只能有1只, 依序:sword,bomb,arrow
   public:
     Warrior(HeadQuarter *HQ, int id, warrior_t nWarrior, int hp)
-    : _HQ(HQ), _id(id), _species(nWarrior), _hp(hp),
+    : _HQ(HQ), _id(id), _species(nWarrior), _hp(hp), _idle(false),
       _loyalty(0), _morale(0), _fightback(true), _city(-1) {
         _atk = Warrior_Attacks[nWarrior];
         _weapons.resize(NUM_WEAPON, nullptr);
@@ -576,6 +577,7 @@ class Warrior {
     int target() const { return _HQ->target(); }
     int hp() const { return _hp; }
     int add_hp(int value) { return _hp += value; }
+    bool idle() { return _idle; }
     bool dead() { return hp() <= 0; }
     bool fightback() const { return _fightback; }
     Weapon * weapon(weapon_t n) { return _weapons[n]; }
@@ -605,18 +607,27 @@ class Warrior {
         return wp ? (fire ? wp->attack() : wp->atk()) : 0;
     }
     int fightback_attack(bool fire) {
-        return _hp > 0 && _fightback ? _atk/2 + sword_attack(fire) : 0;
+        return _hp > 0 && _fightback ? _atk/2 + sword_attack(fire) : -1;
     }
     int forecast_attack(bool fire) {
-        return _hp > 0 ? _atk + sword_attack(fire) : 0;
+        return _hp <= 0 ? -1 : _atk + sword_attack(fire);
     }
     virtual bool attack(Warrior *opponent, int atk) {
-        if (dead()) return false;
-        int last_opponent_hp = opponent->hp();
-        bool bWin = opponent->dead() || opponent->add_hp(-atk) <= 0;
-        if (bWin && opponent->species() == _lion_) {
-            // 對手為獅子死亡時將其戰鬥前生命值移轉到自己
-            add_hp(last_opponent_hp);
+        if (dead()) return false;           // 本身是否已亡(被弓箭射死)
+        bool bWin = opponent->dead();       // 對方是否已亡(被弓箭射死)
+        if (!bWin) {
+            // 對手尚存活, 這時才開時攻擊
+            int last_hp = opponent->hp();
+            bWin = opponent->add_hp(-max(0,atk)) <= 0;
+            if (bWin && opponent->species() == _lion_) {
+                // 對手為獅子死亡時將其戰鬥前生命值移轉到自己
+                add_hp(last_hp);
+            }
+
+            // atk <- {forecast,fightback}_attack(true)
+            // 攻擊會使用到 sword, 因此要檢查 sword 是否已耗盡
+            Weapon *sword = _weapons[_sword_];
+            if (sword && sword->exhausted()) delete sword;
         }
         return bWin;    // 對手是否死亡
     }
@@ -629,10 +640,12 @@ class Warrior {
         return false;
     }
     bool add_weapon(Weapon *w) {
-        weapon_t wt = w->types();
-        if (_weapons[wt] == nullptr) {
-            _weapons[wt] = w;
-            return true;
+        if (w != nullptr) {
+            weapon_t wt = w->types();
+            if (_weapons[wt] == nullptr) {
+                _weapons[wt] = w;
+                return true;
+            }
         }
         return false;
     }
@@ -655,7 +668,7 @@ class Warrior {
         if (debug) cout << '}' << endl;
     }
     virtual int forward() {
-        if (_city < 0 || _city == target()) return 0;
+        if (_idle || _city < 0) return 0;
 
         City &C1 = BG[_city];
         C1.leave(this);
@@ -667,7 +680,7 @@ class Warrior {
         return 1;
     }
     int report_forward() {
-        if (_city < 0) return 0;
+        if (_idle || _city < 0) return 0;
         ostream &os = output_warrior(this);
         if (_city == target()) {
             // (12) 武士抵达敌军司令部
@@ -686,7 +699,7 @@ class Warrior {
                 flag_t opponent = Opponent(flag());
                 ::HQ[opponent]->lost_battle();      // (13) 宣告敵方總部被佔領
             }
-            _city = -1; // 不再處理
+            _idle = true;               // 不再處理
             // 不可在此呼叫C.leave(this), 可能影響呼叫者使用城市迴圈的iterator
             return -1;  // 由呼叫者決定是否將已達敵方總部的武士移除或其他處理
         }
@@ -804,7 +817,7 @@ class Warrior_Lion: public Warrior {
         cout << "Its loyalty is " << loyalty() << endl;
     }
     bool run_away() {
-        return loyalty() <= 0;
+        return !idle() && loyalty() <= 0;
     }
     // 每經過一場未能殺死敵人的戰鬥，忠誠度就降低K。忠誠度降至0或0以下，
     // 則該lion逃離戰場,永遠消失。但是已經到達敵人司令部的lion不會逃跑。
@@ -947,8 +960,11 @@ void HeadQuarter::report() const
 static Weapon * weapon_gen(Warrior *owner, int id)
 {
     switch(id % NUM_WEAPON) {
-      case _sword_: // 擁有武士20%的攻擊力
-        return new Sword(owner, owner->atk()/5);
+      case _sword_: // 擁有武士20%的攻擊力, 若攻擊力為零則視為没有武器
+        {
+            int atk = owner->atk() / 5;
+            return atk <= 0 ? nullptr : new Sword(owner, atk);
+        }
       case _bomb_:
         return new Bomb(owner, 0);
       case _arrow_: // 攻擊力固定為R(輸入)
@@ -973,7 +989,7 @@ Weapon::~Weapon()
 
 void City::report()
 {
-    cout << "City[" << _id << "] elements: " << _elements
+    cout << "--> City[" << _id << "] elements: " << _elements
         << " flag:" << FLAG_NAME[_flag]
         << " winner:" << FLAG_NAME[_last_winner];
     if (_occupied) cout << " occupied:" << _occupied;
@@ -1048,9 +1064,31 @@ flag_t City::fight(flag_t attacker)
     Warrior *wAttacker = warrior(attacker);
     Warrior *wOpponent = warrior(opponent);
 
-    if (wAttacker && wOpponent) {
-        int atk = wOpponent->dead() ? 0 : wAttacker->forecast_attack(true);
-        if (atk > 0) {
+    // 要確定在本城市雙方的武士至少有一個存活
+    // 如果兩個早些時候被對方弓箭射死則不算戰鬥
+    if (wAttacker && wOpponent && !(wAttacker->dead() && wOpponent->dead())) {
+        if (debug) {
+            report();
+
+            cout << "--> Before fight: " << wAttacker->name()
+                << "(hp:" << wAttacker->hp()
+                << ", atk:" << wAttacker->atk()
+                << "+" << wAttacker->sword_attack(false)
+                << ") vs " << wOpponent->name()
+                << "(hp:" << wOpponent->hp()
+                << ", atk:" << wOpponent->atk()
+                << "/2+" << wAttacker->sword_attack(false)
+                << ") fightback=" << wOpponent->fightback()
+                << endl;
+            // !!
+            if (wAttacker->flag() == _red_ && wAttacker->species() == _lion_ &&
+                wAttacker->id() == 2 && wAttacker->city() == 13) {
+                cout << "caught" << endl;
+            }
+        }
+
+        int atk = wOpponent->dead() ? -1 : wAttacker->forecast_attack(true);
+        if (atk >= 0) {
             // (6) 武士主动进攻
             // 000:40 red iceman 1 attacked blue lion 1 in city 1 with 20 elements and force 30
             output_warrior(wAttacker) << "attacked " << wOpponent->name()
@@ -1068,8 +1106,8 @@ flag_t City::fight(flag_t attacker)
 
         } else {
             // 輪到對手反擊
-            atk = wAttacker->dead() ? 0 : wOpponent->fightback_attack(true);
-            if (atk > 0) {
+            atk = wAttacker->dead() ? -1 : wOpponent->fightback_attack(true);
+            if (atk >= 0) {
                 // (7) 武士反击
                 // 001:40 blue dragon 2 fought back against red lion 2 in city 1
                 output_warrior(wOpponent) << "fought back against "
@@ -1086,17 +1124,31 @@ flag_t City::fight(flag_t attacker)
             }
         }
 
+        if (debug) {
+            cout << "--> After fight: "
+                << wAttacker->name()
+                << "(" << wAttacker->hp() << ") vs "
+                << wOpponent->name()
+                << "(" << wOpponent->hp() << ")"
+                << " --> winner is " << FLAG_NAME[winner]
+                << endl;
+        }
+
         if (winner != _none_) {
-            if (atk > 0) {      // 戰鬥獲勝, 而非對手被己方的弓箭射死的
+            if (atk >= 0) {     // 戰鬥獲勝, 而非對手被己方的弓箭射死的
                 // (8) 武士战死
                 // 001:40 red lion 2 was killed in city 1
                 output_warrior(wLost) << "was killed in city "
                     << id() << endl;
             }
+        }
 
-            // (9) 武士欢呼
-            wWin->cheer();
+        if (!wAttacker->dead()) {
+            // (9) 武士欢呼 (Dragon主動進攻還沒有死的話)
+            wAttacker->cheer();
+        }
 
+        if (winner != _none_) {
             if (_elements > 0) {
                 // (10) 武士获取生命元
                 wWin->earn_elements(_elements);
@@ -1141,9 +1193,12 @@ static ostream& output_warrior(const Warrior *w, const string &action)
 typedef int (*warrior_do)(Warrior *w, int city);
 
 // 依城市編號 + 紅軍/藍軍戰士順序
-static void city_walk(warrior_do wdo)
+static void city_walk(warrior_do wdo, bool all=true)
 {
-    for (int i = 0; i < BG.size(); i++) {
+    int nFirst = all ? 0 : 1;
+    int nLast = all ? BG.size()-1 : N;
+
+    for (int i = nFirst; i <= nLast; i++) {
         City &C = BG[i];
         for (flag_t n = _red_; n != _none_; n = flag_t(n+1)) {
             warrior_v &wv = C.warriors(n);
@@ -1330,39 +1385,49 @@ static int shoot_arrow(Warrior *attacker, int city)
 // 武士使用bomb和敌人同归于尽的情况下，不算是一场战斗，双方都不能拿走城市的生
 // 命元，也不影响城市的旗帜。
 //
-static int launch_bomb(Warrior *attacker, int city)
+static int launch_bomb(Warrior *src, int city)
 {
-    if (attacker->hp() <= 0) return 0;  // 已無生命值: 應是3分鐘前被弓箭射死
+    if (src->idle() || src->hp() <= 0) {
+        // 不處理已抵達總部或無生命值(應是3分鐘前被弓箭射死)
+        return 0;
+    }
 
-    Weapon *bomb = attacker->weapon(_bomb_);
+    Weapon *bomb = src->weapon(_bomb_);
     if (bomb != nullptr) {
-        flag_t aflag = attacker->flag();
-        Warrior *opponent = BG[city].warrior(Opponent(aflag));
-        if (opponent == nullptr) return 0;          // 無對手
-        if (opponent->hp() <= 0) return 0;          // 對手已無生命值
+        flag_t aflag = src->flag();
+        Warrior *obj = BG[city].warrior(Opponent(aflag));
+        if (obj == nullptr || obj->hp() <= 0) {
+            // 無對手/對手已無生命值
+            return 0;
+        }
 
         City &C = BG[city];
         flag_t home = C.flag();
         if (home == _none_) home = city & 1 ? _red_ : _blue_;
 
-        // 取得對手的主動攻擊力或被動反擊力
-        int atk = aflag == home                         // 攻擊者是主場
-                    ? opponent->fightback_attack(false) // 取得對手的回擊力
-                    : opponent->forecast_attack(false); // 否則取對手的攻擊力
-        if (atk >= attacker->hp()) {
+        bool die;
+        // 由主場來決定
+        if (aflag == home) {        // 攻擊者的主場
+            die = (src->forecast_attack(false) < obj->hp())     // 殺不死對方
+               && (obj->fightback_attack(false) >= src->hp());  // 對方回擊得勝
+        } else {                    // 對方的主場
+            die = (obj->forecast_attack(false) >= src->hp());   // 對方攻擊得勝
+        }
+
+        if (die) {
             // 引爆炸彈同歸於盡, 不算戰斗也不影響城市的旗幟
-            atk = bomb->attack();
-            opponent->add_hp(-atk);
-            attacker->add_hp(-atk);
+            int atk = bomb->attack();
+            obj->add_hp(-atk);
+            src->add_hp(-atk);
 
             // (5) 武士使用bomb
             // 000:38 blue dragon 1 used a bomb and killed red lion 7
-            output_warrior(attacker) << "used a bomb and killed "
-                << opponent->name() << endl;
+            output_warrior(src) << "used a bomb and killed "
+                << obj->name() << endl;
 
             // 雙方同歸於盡
-            opponent->die();
-            return 2;   // 將attacker從現行處理中的City移走, 並銷毀之
+            obj->die();
+            return 2;   // 將src從現行處理中的City移走, 並銷毀之
         }
     }
     return 0;
@@ -1404,7 +1469,7 @@ static void run_case(int elements, int mins)
     }
 
     int n = 0;
-    while (n < mins && redHQ.alive() && blueHQ.alive()) {
+    while (n <= mins && redHQ.alive() && blueHQ.alive()) {
         Hour = n / 60;
         Mins = n % 60;
         switch(Mins) {
@@ -1437,7 +1502,7 @@ static void run_case(int elements, int mins)
             break;
         case 38: //拥有bomb的武士评估是否应该使用bomb。如果是，
                  // 就用bomb和敌人同归于尽
-            city_walk(launch_bomb);
+            city_walk(launch_bomb, false);      // 不包含總部
             n += 2;
             break;
         case 40: // 在有两个武士的城市，会发生战斗...

@@ -1,4 +1,4 @@
-/* a6.cc
+/* pq.cc -- tonychen [@] finenet.com.tw
 
    描述
     我们定义一个正整数a比正整数b优先的含义是：
@@ -26,11 +26,9 @@
 */
 
 #include <iostream>
-#include <sstream>
+#include <fstream>
 #include <vector>
 #include <queue>
-#include <algorithm>
-#include <string>
 #include <cstring>
 #include <assert.h>
 
@@ -46,32 +44,124 @@ const unsigned int MAX_NUM = 10000000;
 static vint prime;                          // not include 2: 3, 5, 7, 11 ...
 static int debug;
 
-static int factor_prime(int n);
 //---------------------------------------------------------------------------
 
-class Factor_Prime {
+class Node {
   private:
     int _value;                             // 數值
-    int _fp_num;                            // 質因子個數
+    int _num;                               // 質因子個數
+    bool _used;                             // 已取出過
   public:
-    Factor_Prime(int value, int num) : _value(value), _fp_num(num) {}
+    Node(int value, int num) : _value(value), _num(num), _used(false) {
+        if (debug > 2) {
+            cout << "--> Node(): " << this
+                << " (" << _value
+                << ", " << _num
+                << ", " << _used
+                << ")" << endl;
+        }
+    }
+    ~Node() {
+        if (debug > 2) {
+            cout << "--> ~Node(): " << this
+                << " (" << _value
+                << ", " << _num
+                << ", " << _used
+                << ")" << endl;
+        }
+        assert(_used);
+    }
     int value() const { return _value; }
-    virtual bool operator< (const Factor_Prime &x) const {
-        int sts = _fp_num - x._fp_num;
-        return sts ? (sts < 0) : (_value < x._value);
+    int num() const { return _num; }
+    bool used() const { return _used; }
+    void set_used() { _used = true; }
+};
+
+typedef Node * pNode;
+
+bool operator< (const Node &x, const Node &y) {
+    int sts = x.num() - y.num();
+    return sts ? (sts < 0) : (x.value() < y.value());
+}
+
+struct cmpMax {
+    bool operator() (const pNode &x, const pNode &y) {
+        return operator< (*x, *y);
     }
 };
 
-class Factor_Prime_Low: public Factor_Prime {
-  public:
-    Factor_Prime_Low(int value, int num) : Factor_Prime(value, num) {}
-    bool operator< (const Factor_Prime &x) const {
-        return x.Factor_Prime::operator< (*this);
+struct cmpMin {
+    bool operator() (const pNode &x, const pNode &y) {
+        return operator< (*y, *x);
     }
 };
-    
-typedef priority_queue<Factor_Prime> pqFPH;
-typedef priority_queue<Factor_Prime_Low> pqFPL;
+
+typedef priority_queue<pNode, vector<pNode>, cmpMax> pqMax;
+typedef priority_queue<pNode, vector<pNode>, cmpMin> pqMin;
+
+class PQ_MaxMin {
+  private:
+    pqMax _pqMax;
+    pqMin _pqMin;
+  public:
+    ~PQ_MaxMin();
+    void push(int value, int num);
+    void pop(int &maxValue, int &minValue);
+};
+
+PQ_MaxMin::~PQ_MaxMin()
+{
+    if (debug > 2) cout << ">>> ~PQ_MaxMin(): Release _pqMax()" << endl;
+    while (!_pqMax.empty()) {
+        pNode p = _pqMax.top();
+        _pqMax.pop();
+        if (p->used()) delete p; else p->set_used();
+    }
+
+    if (debug > 2) cout << endl << ">>> ~PQ_MaxMin(): Release _pqMin()" << endl;
+    while (!_pqMin.empty()) {
+        pNode p = _pqMin.top();
+        _pqMin.pop();
+        assert(p->used());
+        delete p;
+    }
+}
+
+void PQ_MaxMin::push(int value, int num)
+{
+    pNode p = new Node(value, num);
+    _pqMax.push(p);
+    _pqMin.push(p);
+}
+
+void PQ_MaxMin::pop(int &maxValue, int &minValue)
+{
+    maxValue = -1;
+    while (!_pqMax.empty()) {
+        pNode p = _pqMax.top();
+        _pqMax.pop();
+        if (!p->used()) {
+            maxValue = p->value();
+            p->set_used();
+            break;
+        }
+        delete p;
+    }
+    assert(maxValue >= 0);
+
+    minValue = -1;
+    while (!_pqMin.empty()) {
+        pNode p = _pqMin.top();
+        _pqMin.pop();
+        if (!p->used()) {
+            minValue = p->value();
+            p->set_used();
+            break;
+        }
+        delete p;
+    }
+    assert(minValue >= 0);
+}
 
 //---------------------------------------------------------------------------
 
@@ -89,7 +179,7 @@ T modpow(T base, T exp, T modulus) {
 }
 
 // ( x * y) mod n
-static int MUL(int x, int y, int n)
+static inline int MUL(int x, int y, int n)
 {
     long long z = (long long)x * y;
     return z % n;
@@ -99,13 +189,13 @@ static bool SPRP_is_prime(int n)
 {
     // 預先判斷偶數與1，節省一點時間。
     if (n <= 2 || (n & 1) == 0) return n == 2;
- 
+
     int u = n - 1, t = 0;
     while ((u & 1) == 0) {
         u >>= 1;
         t++;
     }
- 
+
     // 推定是質數，就實施下一次測試；
     // 確定是合數，就馬上結束。
     int sprp[3] = {2, 7, 61};   // 足以涵蓋int32範圍
@@ -115,17 +205,17 @@ static bool SPRP_is_prime(int n)
         // （a是質數時，模n後不會等於零，不必特別判斷。）
         int a = sprp[k] % n;
         if (a == 0 || a == 1 || a == n-1) continue;
- 
+
         int x = modpow(a, u, n);
         if (x == 1 || x == n-1) continue;
- 
+
         for (int i = 0; i < t-1; i++) {
             x = MUL(x, x, n);
             if (x == 1) return false;
             if (x == n-1) break;
         }
         if (x == n-1) continue;
- 
+
         return false;
     }
     // 通過全部測試，確定是質數。
@@ -161,9 +251,8 @@ static int factor_prime(int n)
             if (cnt > 1) cout << '^' << cnt;
         }
     }
-    int i = 0;
-    int k = prime.size();
-    for (; i < k; i++) {
+
+    for (int i = 0, k = prime.size(); i < k; i++) {
         int m = prime[i];
         if (m >= n) {
             if (m == n) break;
@@ -189,9 +278,51 @@ static int factor_prime(int n)
 
 //---------------------------------------------------------------------------
 
+static bool (*isPrime)(int) = is_prime;
+
+static void run()
+{
+    prime.clear();
+    prime.reserve(512);
+
+    if (debug > 1) cout << "Primes: 2 ";
+    for (int i = 3; (unsigned)i*i < MAX_NUM; i++) {
+        if (isPrime(i)) {
+            prime.push_back(i);
+            if (debug > 1) cout << i << ' ';
+        }
+    }
+    if (debug > 1) cout << endl << "--> "<< prime.size()+1 << endl << endl;
+
+    PQ_MaxMin pq;
+    int num;
+
+    cin >> num;
+    for (int i = 0; i < num; i++) {
+        for (int j = 0; j < 10; j++) {
+            int value;
+            cin >> value;
+            assert(0 < value && value < MAX_NUM);
+
+            if (debug) cout << "--> " << value << ":";
+            int fpNum = factor_prime(value);
+            if (debug) cout << " => " << fpNum << endl;
+
+            pq.push(value, fpNum);
+        }
+
+        if (debug) cout << endl;
+
+        int maxValue, minValue;
+        pq.pop(maxValue, minValue);
+        cout << maxValue << ' ' << minValue << endl;
+
+        if (debug) cout << endl;
+    }
+}
+
 int main (int argc, char *argv[])
 {
-    bool (*isPrime)(int) = is_prime;
     {
         int n = 1;
         while (n < argc && argv[n][0] == '-') {
@@ -199,6 +330,13 @@ int main (int argc, char *argv[])
                 debug += strlen(&argv[n][1]);
             } else if (strncmp(argv[n], "-sprp", min(5, (int)strlen(argv[n]))) == 0) {
                 isPrime = SPRP_is_prime;
+            } else if (strncmp(argv[n], "-i:", 3) == 0) {
+                ifstream in(&argv[n][3]);
+                //streambuf *cinbuf = cin.rdbuf(); //save old buf
+                cin.rdbuf(in.rdbuf()); //redirect std::cin to in.txt!
+                run();
+                //cin.rdbuf(cinbuf);
+                return 0;
             }
             n++;
         }
@@ -213,40 +351,7 @@ int main (int argc, char *argv[])
         }
     }
 
-    prime.reserve(512);
-    for (int i = 3; (unsigned)i*i < MAX_NUM; i++) {
-        if (isPrime(i)) {
-            prime.push_back(i);
-            if (debug > 1) cout << i << ' ';
-        }
-    }
-    if (debug > 1) cout << endl << "--> "<< prime.size() << endl;
-
-    pqFPH dataH;
-    pqFPL dataL;
-    int num;
-    cin >> num;
-    for (int i = 0; i < num; i++) {
-        for (int j = 0; j < 10; j++) {
-            int x;
-            cin >> x;
-            assert(x < MAX_NUM);
-
-            if (debug) cout << x << ":";
-            int n = factor_prime(x);
-            if (debug) cout << " --> " << n << endl;
-
-            dataH.push(Factor_Prime(x, n));
-            dataL.push(Factor_Prime_Low(x, n));
-        }
-
-        if (debug) cout << endl;
-        cout << dataH.top().value() << ' ' << dataL.top().value() << endl;
-        if (debug) cout << endl;
-
-        dataH.pop();
-        dataL.pop();
-    }
+    run();
 
     return 0;
 }

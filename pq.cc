@@ -160,7 +160,7 @@ T modpow(T base, T exp, T modulus) {
   base %= modulus;
   T result = 1;
   while (exp > 0) {
-    if (exp & 1) result = (result * base) % modulus;
+    if (exp & 1) result = ((unsigned long long)result * base) % modulus;
     base = ((unsigned long long)base * base) % modulus;
     exp >>= 1;
   }
@@ -173,7 +173,7 @@ unsigned int POWMOD(unsigned int base, unsigned int exp, unsigned int modulus) {
   base %= modulus;
   unsigned int result = 1;
   while (exp > 0) {
-    if (exp & 1) result = (result * base) % modulus;
+    if (exp & 1) result = ((unsigned long long)result * base) % modulus;
     base = ((unsigned long long)base * base) % modulus;
     exp >>= 1;
   }

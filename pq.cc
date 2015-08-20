@@ -41,7 +41,7 @@ using namespace std;
 typedef vector<int> vint;
 
 const unsigned int MAX_NUM = 10000000;
-static vint prime;                          // not include 2: 3, 5, 7, 11 ...
+static vint Prime;                          // not include 2: 3, 5, 7, 11 ...
 static int debug;
 
 //---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ static int debug;
 class Node {
   private:
     int _value;                             // 數值
-    int _num;                               // 質因子個數
+    int _num;                               // 質因數個數
     bool _used;                             // 已取出過
   public:
     Node(int value, int num) : _value(value), _num(num), _used(false) {
@@ -84,26 +84,25 @@ bool operator< (const Node &x, const Node &y) {
     return sts ? (sts < 0) : (x.value() < y.value());
 }
 
-struct cmpMax {
-    bool operator() (const pNode &x, const pNode &y) {
-        return operator< (*x, *y);
+class CmpMaxMin {
+  private:
+    bool _reverse;
+  public:
+    CmpMaxMin(bool reverse=false) : _reverse(reverse) {}
+    bool operator() (const pNode &x, const pNode &y) const {
+        return _reverse ? operator< (*y, *x) : operator< (*x, *y);
     }
 };
 
-struct cmpMin {
-    bool operator() (const pNode &x, const pNode &y) {
-        return operator< (*y, *x);
-    }
-};
-
-typedef priority_queue<pNode, vector<pNode>, cmpMax> pqMax;
-typedef priority_queue<pNode, vector<pNode>, cmpMin> pqMin;
+typedef priority_queue<pNode, vector<pNode>, CmpMaxMin> pqMaxMin;
 
 class PQ_MaxMin {
   private:
-    pqMax _pqMax;
-    pqMin _pqMin;
+    pqMaxMin _pqMax;
+    pqMaxMin _pqMin;
+    bool get(pqMaxMin &pq, int &value);
   public:
+    PQ_MaxMin() : _pqMin(CmpMaxMin(true)) {}
     ~PQ_MaxMin();
     void push(int value, int num);
     void pop(int &maxValue, int &minValue);
@@ -113,17 +112,14 @@ PQ_MaxMin::~PQ_MaxMin()
 {
     if (debug > 2) cout << ">>> ~PQ_MaxMin(): Release _pqMax()" << endl;
     while (!_pqMax.empty()) {
-        pNode p = _pqMax.top();
-        _pqMax.pop();
-        if (p->used()) delete p; else p->set_used();
+        int value;
+        get(_pqMax, value);
     }
 
     if (debug > 2) cout << endl << ">>> ~PQ_MaxMin(): Release _pqMin()" << endl;
     while (!_pqMin.empty()) {
-        pNode p = _pqMin.top();
-        _pqMin.pop();
-        assert(p->used());
-        delete p;
+        int value;
+        get(_pqMin, value);
     }
 }
 
@@ -134,33 +130,25 @@ void PQ_MaxMin::push(int value, int num)
     _pqMin.push(p);
 }
 
+bool PQ_MaxMin::get(pqMaxMin &pq, int &value)
+{
+    while (!pq.empty()) {
+        pNode p = pq.top();
+        pq.pop();
+        if (!p->used()) {
+            p->set_used();
+            value = p->value();
+            return true;
+        }
+        delete p;
+    }
+    return false;
+}
+
 void PQ_MaxMin::pop(int &maxValue, int &minValue)
 {
-    maxValue = -1;
-    while (!_pqMax.empty()) {
-        pNode p = _pqMax.top();
-        _pqMax.pop();
-        if (!p->used()) {
-            maxValue = p->value();
-            p->set_used();
-            break;
-        }
-        delete p;
-    }
-    assert(maxValue >= 0);
-
-    minValue = -1;
-    while (!_pqMin.empty()) {
-        pNode p = _pqMin.top();
-        _pqMin.pop();
-        if (!p->used()) {
-            minValue = p->value();
-            p->set_used();
-            break;
-        }
-        delete p;
-    }
-    assert(minValue >= 0);
+    assert(get(_pqMax, maxValue));
+    assert(get(_pqMin, minValue));
 }
 
 //---------------------------------------------------------------------------
@@ -227,8 +215,8 @@ static bool SPRP_is_prime(int n)
 static bool is_prime(int n)
 {
     if ((n & 1) == 0 || n < 2) return n == 2;
-    for (int i = 0, k = prime.size(); i < k; i++) {
-        int m = prime[i];
+    for (int i = 0, k = Prime.size(); i < k; i++) {
+        int m = Prime[i];
         if (m * m > n) break;
         if (n % m == 0) return false;
     }
@@ -237,7 +225,8 @@ static bool is_prime(int n)
 
 //---------------------------------------------------------------------------
 
-// 求n的質因數個數: 252 = 2^2 x 3^3 x 7 => (2,3,7) => 252 有 3 個質因數
+// 求 n 的質因數個數:
+// 252 = 2^2 x 3^3 x 7 => (2,3,7) => 252 有 3 個質因數
 // 221 = 13 x 17 => 2個
 static int factor_prime(int n)
 {
@@ -252,8 +241,8 @@ static int factor_prime(int n)
         }
     }
 
-    for (int i = 0, k = prime.size(); i < k; i++) {
-        int m = prime[i];
+    for (int i = 0, k = Prime.size(); i < k; i++) {
+        int m = Prime[i];
         if (m >= n) {
             if (m == n) break;
             return count;
@@ -269,7 +258,7 @@ static int factor_prime(int n)
         }
     }
 
-    if (count) {    // 必須是因子才要計算, 本身是質數則不算
+    if (count) {    // 必須是因子才要計數, 本身是質數則不算
         count++;
         if (debug) cout << ' ' << n;
     }
@@ -282,17 +271,17 @@ static bool (*isPrime)(int) = is_prime;
 
 static void run()
 {
-    prime.clear();
-    prime.reserve(512);
+    Prime.clear();
+    Prime.reserve(512);
 
     if (debug > 1) cout << "Primes: 2 ";
     for (int i = 3; (unsigned)i*i < MAX_NUM; i++) {
         if (isPrime(i)) {
-            prime.push_back(i);
+            Prime.push_back(i);
             if (debug > 1) cout << i << ' ';
         }
     }
-    if (debug > 1) cout << endl << "--> "<< prime.size()+1 << endl << endl;
+    if (debug > 1) cout << endl << "--> "<< Prime.size()+1 << endl << endl;
 
     PQ_MaxMin pq;
     int num;

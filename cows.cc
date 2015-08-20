@@ -1,4 +1,4 @@
-/* cows.cc: tonychen@finenet.com.tw
+/* cows.cc: tonychen [@] finenet.com.tw
 
    描述
     Farmer John has built a new long barn, with N (2 <= N <= 100,000) stalls.

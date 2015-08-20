@@ -1,4 +1,4 @@
-/* charm.cc -- tonychen@finenet.com.tw
+/* charm.cc -- tonychen [@] finenet.com.tw
 
    描述
     Bessie has gone to the mall's jewelry store and spies a charm bracelet.

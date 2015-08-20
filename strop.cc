@@ -1,4 +1,4 @@
-/* strop.cc -- tonychen@finenet.com.tw
+/* strop.cc -- tonychen [@] finenet.com.tw
 
    描述
     给定n个字符串（从1开始编号），每个字符串中的字符位置从0开始编号，

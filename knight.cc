@@ -1,4 +1,4 @@
-/* knight.cc -- tonychen@finenet.com.tw
+/* knight.cc -- tonychen [@] finenet.com.tw
 
    Background
     The knight is getting bored of seeing the same black and white squares

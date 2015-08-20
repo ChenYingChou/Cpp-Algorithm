@@ -1,4 +1,4 @@
-/* maze.cc -- tonychen@finenet.com.tw
+/* maze.cc -- tonychen [@] finenet.com.tw
 
    描述
     定义一个二维数组：

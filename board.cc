@@ -1,4 +1,4 @@
-/* board.cc -- tonychen@finenet.com.tw
+/* board.cc -- tonychen [@] finenet.com.tw
 
    一张普通的国际象棋棋盘，它被分成 8 乘 8 (8 行 8 列) 的 64 个方格。设有形状
    一样的多米诺牌，每张牌恰好覆盖棋盘上相邻的两个方格，即一张多米诺牌是一张 1

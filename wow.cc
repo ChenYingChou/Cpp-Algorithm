@@ -1,4 +1,4 @@
-/* wow.cc -- tonychen@finenet.com.tw
+/* wow.cc -- tonychen [@] finenet.com.tw
 
    魔兽世界(World of Warcraft)终极版
 

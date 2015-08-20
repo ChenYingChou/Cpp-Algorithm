@@ -1,4 +1,4 @@
-/* sudoku.cc -- tonychen@finenet.com.tw
+/* sudoku.cc -- tonychen [@] finenet.com.tw
 
    Input:
     1

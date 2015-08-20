@@ -1,4 +1,4 @@
-/* flip.cc -- tonychen@finenet.com.tw
+/* flip.cc -- tonychen [@] finenet.com.tw
 
    描述
     Flip game is played on a rectangular 4x4 field with two-sided pieces

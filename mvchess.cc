@@ -1,4 +1,4 @@
-/* mvchess.cc -- tonychen@finenet.com.tw
+/* mvchess.cc -- tonychen [@] finenet.com.tw
 
    描述:
     在一个给定形状的棋盘（形状可能是不规则的）上面摆放棋子，棋子没有区别。

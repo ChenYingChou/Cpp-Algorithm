@@ -1,4 +1,4 @@
-/* clocks.cc -- tonychen@finenet.com.tw
+/* clocks.cc -- tonychen [@] finenet.com.tw
 
    有9个时钟，排成一个3*3的矩阵。
 

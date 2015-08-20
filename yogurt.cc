@@ -1,4 +1,4 @@
-/* yogurt.cc: tonychen@finenet.com.tw
+/* yogurt.cc: tonychen [@] finenet.com.tw
 
    描述
     The cows have purchased a yogurt factory that makes world-famous Yucky

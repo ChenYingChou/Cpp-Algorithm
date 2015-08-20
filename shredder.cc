@@ -1,4 +1,4 @@
-/* shredder.cc -- tonychen@finenet.com.tw
+/* shredder.cc -- tonychen [@] finenet.com.tw
 
    描述
     You have just been put in charge of developing a new shredder for the

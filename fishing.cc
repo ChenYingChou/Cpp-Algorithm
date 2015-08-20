@@ -1,4 +1,4 @@
-/* fishing -- tonychen@finenet.com.tw
+/* fishing -- tonychen [@] finenet.com.tw
 
    描述
     John is going on a fishing trip. He has h hours available (1 <= h <= 16),

@@ -1,4 +1,4 @@
-/* toggle.cc -- tonychen@finenet.com.tw
+/* toggle.cc -- tonychen [@] finenet.com.tw
 
    將牆面全部塗為黃色(y)
 

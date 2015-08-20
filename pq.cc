@@ -39,10 +39,10 @@ using namespace std;
   #define nullptr 0
 #endif
 
-typedef vector<int> vint;
+typedef vector<unsigned int> vuint;
 
 const unsigned int MAX_NUM = 10000000;
-static vint Prime;                          // not include 2: 3, 5, 7, 11 ...
+static vuint Prime;                         // not include 2: 3, 5, 7, 11 ...
 static int debug;
 
 //---------------------------------------------------------------------------
@@ -154,32 +154,45 @@ void PQ_MaxMin::pop(int &maxValue, int &minValue)
 
 //---------------------------------------------------------------------------
 
-// (base ^ exp) mod modulus
+/*
 template <typename T>
 T modpow(T base, T exp, T modulus) {
   base %= modulus;
   T result = 1;
   while (exp > 0) {
     if (exp & 1) result = (result * base) % modulus;
-    base = (base * base) % modulus;
+    base = ((unsigned long long)base * base) % modulus;
+    exp >>= 1;
+  }
+  return result;
+}
+*/
+
+// (base ^ exp) mod modulus
+unsigned int POWMOD(unsigned int base, unsigned int exp, unsigned int modulus) {
+  base %= modulus;
+  unsigned int result = 1;
+  while (exp > 0) {
+    if (exp & 1) result = (result * base) % modulus;
+    base = ((unsigned long long)base * base) % modulus;
     exp >>= 1;
   }
   return result;
 }
 
 // ( x * y) mod n
-static inline int MUL(int x, int y, int n)
+static inline unsigned int MUL(unsigned int x, unsigned int y, unsigned int n)
 {
-    long long z = (long long)x * y;
+    unsigned long long z = (unsigned long long)x * y;
     return z % n;
 }
 
-static bool SPRP_is_prime(int n)
+static bool SPRP_is_prime(unsigned int n)
 {
     // 預先判斷偶數與1，節省一點時間。
     if (n <= 2 || (n & 1) == 0) return n == 2;
 
-    int u = n - 1, t = 0;
+    unsigned int u = n - 1, t = 0;
     while ((u & 1) == 0) {
         u >>= 1;
         t++;
@@ -187,15 +200,15 @@ static bool SPRP_is_prime(int n)
 
     // 推定是質數，就實施下一次測試；
     // 確定是合數，就馬上結束。
-    int sprp[3] = {2, 7, 61};   // 足以涵蓋int32範圍
+    unsigned int sprp[3] = {2, 7, 61};   // 足以涵蓋int32範圍
     for (int k = 0; k < 3; k++) {
         // a沒有大於1、小於n-1的限制，
         // 沒有測試意義的數字，當作是通過測試。
         // （a是質數時，模n後不會等於零，不必特別判斷。）
-        int a = sprp[k] % n;
+        unsigned int a = sprp[k] % n;
         if (a == 0 || a == 1 || a == n-1) continue;
 
-        int x = modpow(a, u, n);
+        unsigned int x = POWMOD(a, u, n);
         if (x == 1 || x == n-1) continue;
 
         for (int i = 0; i < t-1; i++) {
@@ -213,11 +226,11 @@ static bool SPRP_is_prime(int n)
 
 //---------------------------------------------------------------------------
 
-static bool is_prime(int n)
+static bool is_prime(unsigned int n)
 {
     if ((n & 1) == 0 || n < 2) return n == 2;
     for (int i = 0, k = Prime.size(); i < k; i++) {
-        int m = Prime[i];
+        unsigned int m = Prime[i];
         if (m * m > n) break;
         if (n % m == 0) return false;
     }
@@ -229,7 +242,7 @@ static bool is_prime(int n)
 // 求 n 的質因數個數:
 // 252 = 2^2 x 3^3 x 7 => (2,3,7) => 252 有 3 個質因數
 // 221 = 13 x 17 => 2個
-static int factor_prime(int n)
+static int factor_prime(unsigned int n)
 {
     int count = 0;
     if ((n & 1) == 0) {     // even
@@ -243,7 +256,7 @@ static int factor_prime(int n)
     }
 
     for (int i = 0, k = Prime.size(); i < k; i++) {
-        int m = Prime[i];
+        unsigned int m = Prime[i];
         if (m >= n) {
             if (m == n) break;
             return count;
@@ -268,7 +281,7 @@ static int factor_prime(int n)
 
 //---------------------------------------------------------------------------
 
-static bool (*isPrime)(int) = is_prime;
+static bool (*isPrime)(unsigned int) = is_prime;
 
 static void run()
 {
@@ -276,7 +289,7 @@ static void run()
     Prime.reserve(512);
 
     if (debug > 1) cout << "Primes: 2 ";
-    for (int i = 3; (unsigned)i*i < MAX_NUM; i++) {
+    for (unsigned int i = 3; i*i < MAX_NUM; i++) {
         if (isPrime(i)) {
             Prime.push_back(i);
             if (debug > 1) cout << i << ' ';
@@ -313,6 +326,8 @@ static void run()
 
 int main (int argc, char *argv[])
 {
+    std::ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
     {
         int n = 1;
         while (n < argc && argv[n][0] == '-') {
@@ -332,7 +347,7 @@ int main (int argc, char *argv[])
         }
         if (n < argc) {
             while (n < argc) {
-                int x = atoi(argv[n++]);
+                unsigned int x = atoi(argv[n++]);
                 cout << x << " is"
                     << (SPRP_is_prime(x) ? " " : " not ")
                     << "prime" << endl;

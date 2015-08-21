@@ -81,6 +81,30 @@ string int2str(int value)
 
 //---------------------------------------------------------------------------
 
+struct GetFirst {
+    template <class First, class Second>
+    First& operator()(std::pair<First, Second>& p) {
+        return p.first;
+    }
+
+    template <class First, class Second>
+    const First& operator()(const std::pair<First, Second>& p) {
+        return p.first;
+    }
+};
+
+struct GetSecond {
+    template <class First, class Second>
+    Second& operator()(std::pair<First, Second>& p) {
+        return p.second;
+    }
+
+    template <class First, class Second>
+    const Second& operator()(const std::pair<First, Second>& p) {
+        return p.second;
+    }
+};
+
 class Fight {
 private:
     map_atk _atk;                               // key: atk, value: id
@@ -96,11 +120,16 @@ public:
 
 int Fight::add(int id, int atk)
 {
+//    GetFirst GetAtk;
+//    GetSecond GetId;
+    GetFirst GetIterator;
+    GetSecond GetResult;
+
     ret_atk ret = _atk.insert(pair_atk(atk, id));
-    map_atk::iterator t1 = ret.first;
-    if (ret.second == false) {
+    map_atk::iterator t1 = GetIterator(ret); // ret.first;
+    if (GetResult(ret) == false) { // ret.second == false
         ostringstream os;
-        os << "Member #" << id << " and #" << Id(t1)
+        os << "Member #" << id << " and #" << Id(t1) //GetId(*t1)
             <<" have same attack:" << atk;
         throw runtime_error(os.str());
     }
@@ -109,11 +138,12 @@ int Fight::add(int id, int atk)
     int dist = std::numeric_limits<int>::max();;
     if (t1 != _atk.begin()) {
         map_atk::iterator t0 = t1; --t0;
-        dist = atk - Atk(t0);
-        opponent_id = Id(t0);
+        dist = atk - Atk(t0); //GetAtk(*t0);
+        opponent_id = Id(t0); //GetId(*t0);
     }
 
     if (++t1 != _atk.end()) {
+//      if (GetAtk(*t1) - atk < dist) opponent_id = GetId(*t1);
         if (Atk(t1) - atk < dist) opponent_id = Id(t1);
     }
 

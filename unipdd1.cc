@@ -138,7 +138,7 @@
 
     範例:
      1) 9 的單峰回文組合個數計算如下
-        C(9) = C(9,0) = 5 + 1 + 1 + 1 = 9
+        C(9) = C(9,0) = 5 + 1 + 1 + 1 = 8
             + C(7,0)            --> 1 (7) 1 = 5
             + C(5,1)            --> 2 (5) 2 = 1
             + C(3,2)            --> 3 (3) 3 = 1
@@ -236,7 +236,7 @@ ULL UNI_PDD::operator() (const int N, const int index)
     assert(N > 0 && index >= 0 && index <= N);
 
     // N 單峰文中大於 N/2 的只有自己本身
-    if (2 * index >= N) return index < N ? 1 : 0;       
+    if (2 * index >= N) return index < N ? 1 : 0;
 
     if (N <= 2) return N - index;       // 化簡 C(1,?), C(2,?) 的輸出, 不儲存
 
@@ -269,7 +269,7 @@ ULL UNI_PDD::operator() (const int N, const int index)
                 // 一對要儲存: 其實只有 N = 4, 6 時才會在此執行
                 last++;
                 if (debug > 1) {
-                    cout << N << ": " << i+1 << " (" << N2 << ") " << i+1 
+                    cout << N << ": " << i+1 << " (" << N2 << ") " << i+1
                         << " -> pair = 1"
                         << endl;
                 }
@@ -277,7 +277,7 @@ ULL UNI_PDD::operator() (const int N, const int index)
                 ULL v = operator()(N2, i);
                 last += v;
                 if (debug > 1) {
-                    cout << N << ": " << i+1 << " (" << N2 << ") " << i+1 
+                    cout << N << ": " << i+1 << " (" << N2 << ") " << i+1
                         << " -> C(" << N2 << ", " << i << ") = " << v
                         << endl;
                 }
@@ -285,7 +285,7 @@ ULL UNI_PDD::operator() (const int N, const int index)
 
             X[i] = last;
             if (debug > 1) {
-                cout << N << ": X[" << i << "] = " 
+                cout << N << ": X[" << i << "] = "
                     << last << endl;
             }
 
@@ -293,7 +293,7 @@ ULL UNI_PDD::operator() (const int N, const int index)
         }
     }
 
-    return (*p)[min(index,maxCol)];  
+    return (*p)[min(index,maxCol)];
 }
 
 int main(int argc, char *argv[])

@@ -1080,7 +1080,7 @@ flag_t City::fight(flag_t attacker)
                 << "/2+" << wAttacker->sword_attack(false)
                 << ") fightback=" << wOpponent->fightback()
                 << endl;
-            // !!
+
             if (wAttacker->flag() == _red_ && wAttacker->species() == _lion_ &&
                 wAttacker->id() == 2 && wAttacker->city() == 13) {
                 cout << "caught" << endl;

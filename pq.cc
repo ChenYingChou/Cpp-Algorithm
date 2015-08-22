@@ -213,6 +213,9 @@ static bool SPRP_is_prime(unsigned int n)
         t++;
     }
 
+    // http://miller-rabin.appspot.com/
+    // 2^64 (7 bases): {2, 325, 9375, 28178, 450775, 9780504, 1795265022}
+
     // 推定是質數，就實施下一次測試
     // 確定是合數，就馬上結束
     unsigned int sprp[3] = {2, 7, 61};   // 足以涵蓋 2^32 範圍

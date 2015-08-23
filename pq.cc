@@ -266,6 +266,7 @@ static unsigned int prime_factoring(unsigned int n)
 {
     unsigned int count = 0;
     if ((n & 1) == 0) {     // even
+        if (n == 2) return 0;
         count++;
         unsigned int cnt = 1;
         while (n && ((n >>= 1) & 1) == 0) cnt++;
@@ -294,7 +295,7 @@ static unsigned int prime_factoring(unsigned int n)
 
     if (count) {    // 必須是因子才要計數, 本身是質數則不算
         count++;
-        if (debug) cout << (count == 1 ? " " : " × ")  << n;
+        if (debug) cout << " × " << n;
     }
     return count;
 }

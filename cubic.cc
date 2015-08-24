@@ -38,16 +38,17 @@
         => 取三者最接近者: (4,5,5)
         => 面積: 2 x (4x5 + 4x5 + 5x5) = 2 x 65 = 130
 
-      900 = 2 x 2 x 3 x 3 x 5 x 5 => (9,10,10)
+      900 = 2 x 2 x 3 x 3 x 5 x 5 => (3x3,2x5,2x5) => (9,10,10)
+
+    但要從質因子裡組合取出乘積之和最小者也是有點複雜, 反倒是直接以暴力法來得簡單明瞭。
 
  */
 
 #include <iostream>
 #include <fstream>
-#include <vector>
-#include <algorithm>
 #include <cstring>
 #include <cstdlib>
+#include <climits>
 #include <cmath>
 #include <assert.h>
 
@@ -63,42 +64,12 @@ static int debug;
 
 //---------------------------------------------------------------------------
 
-static int find_min_area1(int n)
-{
-    int min_area = 1 << 30;
-    int n3 = (n+2) / 3;
-    int n2 = (2*n+1) / 3;
-    for (int w = 1; w <= n3; w++) {
-        if (n % w != 0) continue;
-        for (int h = w; h <= n2; h++) {
-            int side = w * h;
-            if (n % side != 0) continue;
-            int d = n / side;
-            int area = side + h*d + d*w;
-            if (area < min_area) {
-                min_area = area;
-                if (debug) {
-                    cout << ">>> (" << w
-                        << ", " << h
-                        << ", " << d
-                        << ") = " << 2*area
-                        << endl;
-                }
-
-            }
-        }
-    }
-
-    return 2 * min_area;
-}
-
 static int find_min_area(int n)
 {
-    int min_area = 1 << 30;
-    int n3 = pow(n, 1.0/3) + 1;
-    for (int w = n3; w > 0; w--) {
+    int min_area = INT_MAX;
+    for (int w = pow(n, 1.0/3)+1; w > 0; w--) {
         if (n % w != 0) continue;
-        for (int h = sqrt(n/w)+1; h > 0; h--) {
+        for (int h = sqrt(n/w)+1; h >= w; h--) {
             int side = w * h;
             if (n % side != 0) continue;
             int d = n / side;
@@ -127,16 +98,9 @@ static void run(unsigned int max_num)
     unsigned int num;
     cin >> num;
     while (cin >> num) {
-        int area1 = find_min_area1(num);
-        cout << "area1: " << num << ' ';
-        cout << area1 << endl;
-
         int area = find_min_area(num);
-//        if (debug) cout << "--> ";
-        cout << "area: " << num << ' ';
+        if (debug) cout << num << " --> ";
         cout << area << endl;
-
-        if (area != area1) cout << "*** error ***" << endl;
     }
 }
 

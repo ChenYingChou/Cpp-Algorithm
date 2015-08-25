@@ -1,4 +1,4 @@
-// fs.cc
+// fs.cc -- file system list, ref fsmap.cc
 
 #include <iostream>
 #include <string>

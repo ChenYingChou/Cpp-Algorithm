@@ -32,7 +32,7 @@
 
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    用質因數分解, 設法找出 (W,H,D), 使得 (W,H,D) 這三者儘量接近, 即可得到最小面積:
+    以因數分解, 設法找出(W,H,D), 使得(W,H,D)這三者儘量接近, 即可得到最小面積。
     例如: 100 = 2 x 2 x 5 x 5
         => (1,1,100) (1,2,50), (1,4,25), (1,10,10), (2,2,25), (4,5,5)
         => 取三者最接近者: (4,5,5)
@@ -40,7 +40,10 @@
 
       900 = 2 x 2 x 3 x 3 x 5 x 5 => (3x3,2x5,2x5) => (9,10,10)
 
-    但要從質因子裡組合取出乘積之和最小者也是有點複雜, 反倒是直接以暴力法來得簡單明瞭。
+    要從質因子裡組合取出最小乘積之和也有點複雜, 以暴力法反而來得簡單明瞭。
+
+    --> 立方體最小面積邊長為 N^(1/3), 只要找到第一個最近接 N^(1/3) 的因子組合
+        即是答案, 不需要再往下逐一嘗試。
 
  */
 
@@ -48,7 +51,6 @@
 #include <fstream>
 #include <cstring>
 #include <cstdlib>
-#include <climits>
 #include <cmath>
 #include <assert.h>
 
@@ -58,47 +60,46 @@ using namespace std;
   #define nullptr 0
 #endif
 
-const unsigned int MAX_NUM = 1000;
+typedef unsigned long long ULL;
 
 static int debug;
 
 //---------------------------------------------------------------------------
 
-static int find_min_area(int n)
+static ULL find_min_area(ULL n)
 {
-    int min_area = INT_MAX;
-    for (int w = pow(n, 1.0/3)+1; w > 0; w--) {
-        if (n % w != 0) continue;
-        for (int h = sqrt(n/w)+1; h >= w; h--) {
-            int side = w * h;
-            if (n % side != 0) continue;
-            int d = n / side;
-            int area = side + h*d + d*w;
-            if (area < min_area) {
-                min_area = area;
-                if (debug) {
-                    cout << ">>> (" << w
-                        << ", " << h
-                        << ", " << d
-                        << ") = " << 2*area
-                        << endl;
-                }
+    if (n == 0) return 0;
 
+    for (ULL w = (ULL)(pow((double)n, 1.0/3)+0.5); w > 0; w--) {
+        if (n % w != 0) continue;
+        for (ULL h = (ULL)(sqrt((double)n/w)+0.5); h >= w; h--) {
+            ULL side = w * h;
+            if (n % side != 0) continue;
+            ULL d = n / side;
+            ULL area = 2 * (side + h*d + d*w);
+            if (debug) {
+                cout << ">>> (" << w
+                    << ", " << h
+                    << ", " << d
+                    << ") = " << area
+                    << endl;
             }
+            return area;
         }
     }
 
-    return 2 * min_area;
+    assert(0);
+    return 0;   // 無解?
 }
 
 //---------------------------------------------------------------------------
 
-static void run(unsigned int max_num)
+static void run()
 {
-    unsigned int num;
+    ULL num;
     cin >> num;
     while (cin >> num) {
-        int area = find_min_area(num);
+        ULL area = find_min_area(num);
         if (debug) cout << num << " --> ";
         cout << area << endl;
     }
@@ -109,24 +110,16 @@ int main (int argc, char *argv[])
     std::ios_base::sync_with_stdio(false);
     cin.tie(NULL);
 
-    unsigned int max_num = MAX_NUM;
     {
         int n = 1;
         while (n < argc && argv[n][0] == '-') {
             if (strncmp(argv[n], "-d", 2) == 0) {
                 debug += strlen(&argv[n][1]);
-            } else if (strncmp(argv[n], "-m", 2) == 0) {
-                char *p = &argv[n][2];
-                while (*p && !isdigit(*p)) p++;
-                if (isdigit(*p)) {
-                    max_num = atoi(p);
-                    if (max_num < 10) max_num = MAX_NUM;
-                }
             } else if (strncmp(argv[n], "-i:", 3) == 0) {
                 ifstream in(&argv[n][3]);
                 //streambuf *cinbuf = cin.rdbuf(); //save old buf
                 cin.rdbuf(in.rdbuf()); //redirect std::cin to in.txt!
-                run(max_num);
+                run();
                 //cin.rdbuf(cinbuf);
                 return 0;
             }
@@ -134,7 +127,7 @@ int main (int argc, char *argv[])
         }
     }
 
-    run(max_num);
+    run();
 
     return 0;
 }

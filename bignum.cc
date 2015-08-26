@@ -26,7 +26,7 @@
    样例输出:
     19753086420
 
-*/
+ */
 
 #include <iostream>
 #include <iomanip>

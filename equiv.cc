@@ -73,6 +73,7 @@ public:
     long add_val(long val) { return _val += val; }
     long mul_val(long val) { return _val *= val; }
     Node& operator*= (const Node &a);
+    string vars_formula() const;
 };
 
 // (<Constant3> <Vars3>) = (<Constant1> <Vars1>) * (<Constant2> <Vars2>)
@@ -84,15 +85,36 @@ Node& Node::operator*= (const Node &a)
     return *this;
 }
 
+string Node::vars_formula() const
+{
+    ostringstream os;
+    for (string::const_iterator p = _vars.begin(); p != _vars.end();) {
+        char C = *p++;
+        int count = 1;
+        while (p != _vars.end() && *p == C) {
+            count++;
+            ++p;
+        }
+        if (count == 1) {
+            os << C;
+        } else {
+            os << C << '^' << count;
+        }
+    }
+    return os.str();
+}
+
 Node operator* (Node a, const Node &b)
 {
     a *= b;
     return a;
 }
 
-// variables compare for Nodes
+// compare variables for Nodes: size descending, vars ascending
 bool operator< (const Node &a, const Node &b)
 {
+    int sts = b.vars().size() - a.vars().size();
+    if (sts != 0) return sts < 0;
     return a.vars() < b.vars();
 }
 
@@ -131,11 +153,27 @@ public:
         }
         return true;
     }
-    void add_term(long val, const string &exp) { add_term(Node(val, exp)); }
+    bool is_constant(long &val) const;
+    void add_term(long val, const string &vars) { add_term(Node(val, vars)); }
     Polynomial& operator+= (const Polynomial &x);
     Polynomial& mul(long val);
     string str() const;
 };
+
+bool Polynomial::is_constant(long &val) const
+{
+    if (_poly.size() > 1) return false;
+    if (_poly.size() == 0) {
+        val = 0;
+        return true;
+    }
+
+    // only one node: must be constant (no vars)
+    const Node x = *_poly.begin();
+    if (!x.vars().empty()) return false;
+    val = x.val();
+    return true;
+}
 
 Nodes::iterator Polynomial::add_term(const Node &x)
 {
@@ -198,7 +236,11 @@ string Polynomial::str() const
                 if (a.val() != -1) os << -a.val();
             }
         }
-        os << a.vars();
+        if (a.vars().empty()) {
+            if (a.val() == 1 || a.val() == -1) os << '1';
+        } else {
+            os << a.vars_formula();
+        }
     }
     return os.str();
 }
@@ -226,7 +268,8 @@ Polynomial operator* (const Polynomial &x, const Polynomial &y)
 
 //
 // <expression> ::= ( '+' | '-' | ) <term> { ( '+' | '-' ) <term> }
-//       <term> ::= <factor> { ( '*' | '/' ) <factor> }
+//       <term> ::= <termE> { ( '*' | '/' ) <termE> }
+//      <termE> ::= <factor> { '^' <factor> }
 //     <factor> ::= <ident> | <number> | '(' <expression> ')'
 //
 class PolyExpression {
@@ -240,6 +283,7 @@ private:
 
     void getsym();
     Polynomial factor();
+    Polynomial termE();
     Polynomial term();
     Polynomial expression();
 
@@ -317,8 +361,8 @@ Polynomial PolyExpression::factor()
         Polynomial x = expression();
         if (_sym != ')') {
             cout << _src << '\n' << string(_last-_src, ' ')
-                << "^ Missing ')'" << endl;
-            throw runtime_error("Missing ')'");
+                << "^ Missing ')' or operator" << endl;
+            throw runtime_error("Missing ')' or operator");
         }
         getsym();
         if (debug > 1) {
@@ -333,10 +377,47 @@ Polynomial PolyExpression::factor()
     throw runtime_error("Invalid symbol: '"+string(_last)+"'");
 }
 
+Polynomial PolyExpression::termE()
+{
+    const char *p = _last;
+    int cnt = 0;
+    Polynomial x = factor();
+
+    while (_sym == '^') {
+        getsym();
+        Polynomial y = factor();
+        long expo;
+        if (!y.is_constant(expo)) {
+            cout << _src << '\n' << string(_last-_src-1, ' ')
+                << "^ Must be constant for exponent." << endl;
+            throw runtime_error("Non-constant exponent: '"+string(_last-1)+"'");
+        }
+
+        y = x;
+        x.clear();
+        x.add_term(1, "");
+        while (expo > 0) {
+            if (expo & 1) x = x * y;
+            y = y * y;
+            expo >>= 1;
+        }
+        cnt++;
+    }
+
+    if (debug > 1 && cnt > 0) {
+        cout << "> term^: '" << string(p, _last-p)
+            << "' = " << x.str()
+            << endl;
+    }
+
+    return x;
+}
+
 Polynomial PolyExpression::term()
 {
     const char *p = _last;
-    Polynomial x = factor();
+    int cnt = 0;
+    Polynomial x = termE();
 
     while (_sym == '*' || _sym == '/') {
         if (_sym == '/') {
@@ -345,10 +426,11 @@ Polynomial PolyExpression::term()
             throw runtime_error("Not support operator '/'");
         }
         getsym();
-        x = x * factor();
+        x = x * termE();
+        cnt++;
     }
 
-    if (debug > 1) {
+    if (debug > 1 && cnt > 0) {
         cout << "> term: '" << string(p, _last-p)
             << "' = " << x.str()
             << endl;
@@ -360,6 +442,7 @@ Polynomial PolyExpression::term()
 Polynomial PolyExpression::expression()
 {
     const char *p = _last;
+    int cnt = 0;
     Polynomial x;
 
     if (_sym == '+' || _sym == '-') {
@@ -377,9 +460,10 @@ Polynomial PolyExpression::expression()
         Polynomial y = term();
         if (op == '-') y.mul(-1);
         x += y;
+        cnt++;
     }
 
-    if (debug > 1) {
+    if (debug > 1 && cnt > 0) {
         cout << "> expression: '" << string(p, _last-p)
             << "' = " << x.str()
             << endl;

@@ -140,6 +140,7 @@ public:
     Polynomial(const string vars) { add_term(1, vars); }
     Polynomial(const Polynomial &x) { _poly = x._poly; }
     void clear() { _poly.clear(); }
+    bool empty() { return _poly.empty(); }
     Polynomial& operator= (const Polynomial &x) {
         if (this != &x) _poly = x._poly;
         return *this;
@@ -479,7 +480,10 @@ Polynomial PolyExpression::expression()
 static Polynomial input()
 {
     string s;
-    getline(cin, s);
+    do {
+        if (!getline(cin, s)) return Polynomial();
+    } while (s.empty());
+
     if (debug) {
         if (debug > 1) cout << endl;
         cout << "--> Input: " << s << endl;
@@ -501,6 +505,8 @@ static void run()
     while (--nCase >= 0) {
         Polynomial X = input();
         Polynomial Y = input();
+        if (X.empty() && Y.empty()) break;
+
         if (debug) {
             if (debug > 1) cout << endl;
             cout << "--> X = " << X.str() << endl;

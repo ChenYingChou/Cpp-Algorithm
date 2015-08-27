@@ -1,4 +1,4 @@
-/* stackseq.cc
+/* stackseq.cc -- tonychen [@] finent.com.tw
 
    描述
     栈是常用的一种数据结构，有n个元素在栈顶端一侧等待进栈，栈顶端另一侧是出栈

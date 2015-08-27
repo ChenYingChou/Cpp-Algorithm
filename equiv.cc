@@ -124,6 +124,8 @@ bool operator== (const Node &a, const Node &b)
     return a.vars() == b.vars();
 }
 
+//---------------------------------------------------------------------------
+
 typedef set<Node> Nodes;
 
 class Polynomial {
@@ -380,7 +382,6 @@ Polynomial PolyExpression::factor()
 Polynomial PolyExpression::termE()
 {
     const char *p = _last;
-    int cnt = 0;
     Polynomial x = factor();
 
     while (_sym == '^') {
@@ -401,13 +402,12 @@ Polynomial PolyExpression::termE()
             y = y * y;
             expo >>= 1;
         }
-        cnt++;
-    }
 
-    if (debug > 1 && cnt > 0) {
-        cout << "> term^: '" << string(p, _last-p)
-            << "' = " << x.str()
-            << endl;
+        if (debug > 1) {
+            cout << "> term^: '" << string(p, _last-p)
+                << "' = " << x.str()
+                << endl;
+        }
     }
 
     return x;
@@ -416,7 +416,6 @@ Polynomial PolyExpression::termE()
 Polynomial PolyExpression::term()
 {
     const char *p = _last;
-    int cnt = 0;
     Polynomial x = termE();
 
     while (_sym == '*' || _sym == '/') {
@@ -427,13 +426,12 @@ Polynomial PolyExpression::term()
         }
         getsym();
         x = x * termE();
-        cnt++;
-    }
 
-    if (debug > 1 && cnt > 0) {
-        cout << "> term: '" << string(p, _last-p)
-            << "' = " << x.str()
-            << endl;
+        if (debug > 1) {
+            cout << "> term: '" << string(p, _last-p)
+                << "' = " << x.str()
+                << endl;
+        }
     }
 
     return x;
@@ -442,7 +440,6 @@ Polynomial PolyExpression::term()
 Polynomial PolyExpression::expression()
 {
     const char *p = _last;
-    int cnt = 0;
     Polynomial x;
 
     if (_sym == '+' || _sym == '-') {
@@ -450,6 +447,12 @@ Polynomial PolyExpression::expression()
         getsym();
         x = term();
         if (op == '-') x.mul(-1);
+
+        if (debug > 1) {
+            cout << "> expression: '" << string(p, _last-p)
+                << "' = " << x.str()
+                << endl;
+        }
     } else {
         x = term();
     }
@@ -460,17 +463,18 @@ Polynomial PolyExpression::expression()
         Polynomial y = term();
         if (op == '-') y.mul(-1);
         x += y;
-        cnt++;
-    }
 
-    if (debug > 1 && cnt > 0) {
-        cout << "> expression: '" << string(p, _last-p)
-            << "' = " << x.str()
-            << endl;
+        if (debug > 1) {
+            cout << "> expression: '" << string(p, _last-p)
+                << "' = " << x.str()
+                << endl;
+        }
     }
 
     return x;
 }
+
+//---------------------------------------------------------------------------
 
 static Polynomial input()
 {
@@ -483,8 +487,6 @@ static Polynomial input()
     PolyExpression P;
     return P.parse(s.c_str());
 }
-
-//---------------------------------------------------------------------------
 
 static void run()
 {
@@ -536,4 +538,3 @@ int main (int argc, char *argv[])
 
     return 0;
 }
-

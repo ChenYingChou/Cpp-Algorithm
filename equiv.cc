@@ -37,6 +37,17 @@
     YES
     NO
 
+   擴充功能
+    1.增加指數運算, 限定指數必須為常數表達式。
+    2.增加運算優先順序: 括號 "()" > 指數 "^" > 乘法 "*" > 加減法 "+","-"
+    3.不限定數字一次只能一位。
+    4.運算式可有單一加減號(正負號)。
+    5.自動略過空白行。
+    6.加強除錯模式輸出:
+        -d: 輸出運算前後的表達式
+       -dd: -d 再加上輸出表達式運算過程
+      -ddd: -dd 再加上每次讀取來源字串為符號過程
+
  */
 
 #include <iostream>
@@ -151,13 +162,12 @@ public:
         Nodes::iterator q = a._poly.begin();
         while (p != _poly.end()) {
             if (p->val() != q->val() || p->vars() != q->vars()) return false;
-            ++p;
-            ++q;
+            ++p; ++q;
         }
         return true;
     }
-    bool is_constant(long &val) const;
     void add_term(long val, const string &vars) { add_term(Node(val, vars)); }
+    bool is_constant(long &val) const;
     Polynomial& operator+= (const Polynomial &x);
     Polynomial& mul(long val);
     string str() const;
@@ -209,7 +219,7 @@ Polynomial& Polynomial::mul(long val)
 {
     if (val == 0) {
         clear();
-    } else {
+    } else if (val != 1) {
         for (Nodes::iterator it = _poly.begin(); it != _poly.end(); ++it) {
             ((Node*)&(*it))->mul_val(val);
         }

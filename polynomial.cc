@@ -90,12 +90,12 @@ bool operator== (const Node &a, const Node &b)
 typedef set<Node> Nodes;
 
 class Polynomial {
-private:
+  private:
     Nodes _poly;        // sorting exponent by descending
 
     Nodes::iterator add_term(const Node &x);
 
-public:
+  public:
     Polynomial() {}
     Polynomial(const Polynomial &x) { _poly = x._poly; }
     void clear() { _poly.clear(); }

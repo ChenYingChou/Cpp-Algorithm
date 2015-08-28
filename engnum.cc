@@ -1,4 +1,4 @@
-/* engnum.cc
+/* engnum.cc -- tonychen [@] finenet.com.tw
 
    描述
     在这个问题中，将用英语给你一个或多个整数。你的任务是将这些数字转换成整型

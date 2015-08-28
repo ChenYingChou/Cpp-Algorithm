@@ -129,7 +129,7 @@ static int LV(const string &s)
 //---------------------------------------------------------------------------
 
 class Watch {
-private:
+  private:
     int _chains[4];             // 各種表鏈的個數, LL:00, LV:01, VL:10, VV:11
     int _head;                  // 表盤: LL/LV/VL/VV
 
@@ -138,7 +138,7 @@ private:
 
     void dfs(int k, int prevChain);
 
-public:
+  public:
     Watch(int head) : _head(head) {
         std::fill(_chains, _chains+4, 0);
     }

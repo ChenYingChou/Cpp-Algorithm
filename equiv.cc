@@ -73,10 +73,10 @@ static int debug;
 //---------------------------------------------------------------------------
 
 class Node {
-private:
+  private:
     string _vars;       // Variables of product
     long _val;          // coefficient (constant)
-public:
+  public:
     Node(long val, const string &vars) : _val(val), _vars(vars) {}
     string vars() const { return _vars; }
     long val() const { return _val; }

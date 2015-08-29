@@ -6,7 +6,7 @@
 
     我们希望知道一个N位字符串S的前缀是否具有循环节。换言之，对于每一个从头开
     始的长度为 i （i 大于1）的前缀，是否由重复出现的子串A组成，即 AAA...A
-    （A重复出现K次,K 大于 1）。如果存在，请找出最短的循环节对应的K值（也就是
+    (A重复出现K次, K 大于 1)。如果存在，请找出最短的循环节对应的K值（也就是
     这个前缀串的所有可能重复节中，最大的K值）。
 
    输入
@@ -46,6 +46,7 @@
 #include <sstream>
 #include <string>
 #include <set>
+#include <vector>
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
@@ -77,69 +78,94 @@ public:
     int item_size() const { return _item_size; }
     int repeat_count() const { return _total_size / _item_size; }
     bool operator< (const Cycle &a) const {
-        // 總長度由小到大
+        // (總長度, 項次長度)由小到大
         if (_total_size != a._total_size) return _total_size < a._total_size;
-        // 重複次數小到大: 即項次長度大到小 (重複次數 = 總長度 / 項次長度)
-        return a._item_size < _item_size;
+        return _item_size < a._item_size;
     }
 };
 
 typedef set<Cycle> PrefixCycle;
+typedef set<Cycle>::iterator ItCycle;
+typedef vector<ItCycle> vItCycle;
+
+// 返回 x->item_size() 不得為現有 list[]->item_size() 的倍數
+static bool is_duplicated(const vItCycle &list, const ItCycle &x)
+{
+    int isize = x->item_size();
+    int isize2 = isize / 2;
+    for (int i = 0; i < list.size(); i++) {
+        const ItCycle &it = list[i];
+        if (isize % it->item_size() == 0) return true;
+        if (it->item_size() > isize2) break;
+    }
+    return false;
+}
 
 static void prefix_cycle(const string &s)
 {
     int sz = s.size();
     if (sz < 2) return;
 
-    PrefixCycle cycle;          // 記錄已找到的前缀循環記錄(總長度, 項次長度)
-    const char *s0 = s.data();  // s0 指到字串開頭
+    PrefixCycle cycle;          // 現有的前缀循環記錄(總長度, 項次長度)
+    const char *s0 = s.c_str(); // s0 指到字串開頭
     const char c0 = *s0;        // c0 第一個字元
     const char *p = s0 + 1;
 
+    // 處理長度為 n: 檢查續接及輸出
     for (int n = 1; n <= sz; n++, p++) {
-        set<Cycle>::const_iterator it;
+        // 若 s[n] == s[0] 則測試是否可續接
+        if (*p == c0) { // don't care last char, it's always EOS('\0')
 
-        // 輸出總長度為 n 的組合, 要依重複次數小到大輸出
-        it = cycle.lower_bound(Cycle(n, n));
-        while (it != cycle.end() && it->total_size() == n) {
-            cout << it->total_size() << ' ' << it->repeat_count() << endl;
-            ++it;
-        }
-        if (n == sz) break;     // 將輸出放在最前, 是為了最後一次的總長度
-
-        // 先找到 s[n] == s[0]
-        if (*p != c0) continue;
-
-
-        // 和現有前缀循環記錄比較是否可以繼續加長
-        // 找出總長度為 n 的集合來逐一比較, 先找到總長度為 n 的第一筆
-        // 注意: Cycle 是依(總長度,重複次數)由小到大排序, 重複次數和項次長度成反比
-        it = cycle.lower_bound(Cycle(n, n));
-        while (it != cycle.end() && it->total_size() == n) {
-            int isize = it->item_size();
-            if (isize+n <= sz && strncmp(s0, p, isize) == 0) {
-                // 可以繼續加長: Cycle(n, isize) -> Cycle(n+isize, isize)
-                if (debug) {
-                    cout << "--> Expand ("
-                        << it->total_size() << "," << isize << ")"
-                        << " to (" << n+isize << "," << isize << ")"
-                        << endl;
+            // 和現有前缀循環記錄比較是否可以繼續加長
+            // 找出總長度為 n 的集合來逐一比較
+            ItCycle it = cycle.lower_bound(Cycle(n, 0));
+            while (it != cycle.end() && it->total_size() == n) {
+                int isize = it->item_size();
+                if (isize+n <= sz && strncmp(s0, p, isize) == 0) {
+                    // 可以繼續加長: Cycle(n, isize) -> Cycle(n+isize, isize)
+                    if (debug) {
+                        cout << "--> Expand ("
+                            << it->total_size() << ", " << isize << ")"
+                            << " to (" << n+isize << ", " << isize << ")"
+                            << endl;
+                    }
+                    cycle.insert(Cycle(n+isize, isize));        // 新增加長的
                 }
-                cycle.erase(it);                            // 移除舊的
-                cycle.insert(Cycle(n+isize, isize));        // 新增加長的
-                it = cycle.lower_bound(Cycle(n, isize));    // 指標要重新定位
-            } else {
                 ++it;
+            }
+
+            // 是否為新的前缀循環: s[0..n-1] == s[n..2n-1]
+            if (2*n <= sz && strncmp(s0, p, n) == 0) {
+                if (debug) {
+                    cout << "--> New (" << 2*n << ", "
+                        << n << ")" << endl;
+                }
+                cycle.insert(Cycle(2*n, n));
             }
         }
 
-        // 是否為新的前缀循環: s[0..n-1] == s[n..2n-1]
-        // todo: 但之前有4倍、8倍、16倍...的話, 則捨棄這一次的
-        if (2*n <= sz && strncmp(s0, p, n) == 0) {
-            if (debug) cout << "--> New (" << 2*n << "," << n << ")" << endl;
-            cycle.insert(Cycle(2*n, n));
+        // 蒐集總長度為 n 的記錄
+        vItCycle outList;
+        ItCycle it = cycle.lower_bound(Cycle(n, 0));
+        while (it != cycle.end() && it->total_size() == n) {
+            outList.push_back(it);
+            ++it;
+        }
+
+        // 輸出並刪除之: 輸出依重複次數小到大, 即相當於項次長度大到小
+        while (!outList.empty()) {
+            ItCycle it = outList.back();
+            outList.pop_back();
+
+            // 不要輸出(項次長度)倍數的組合
+            if (is_duplicated(outList, it) == false) {
+                cout << it->total_size() << ' ' << it->repeat_count() << endl;
+            }
+            cycle.erase(it);
         }
     }
+
+    assert(cycle.size() == 0);
 }
 
 //---------------------------------------------------------------------------
@@ -151,7 +177,7 @@ static void run(int max_num)
     while (cin >> n && n > 0) {
         string s;
         cin >> s;
-        assert(s.size() == n);
+        //assert(s.size() == n);
 
         nCase++;
         cout << "Test case #" << nCase << endl;

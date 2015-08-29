@@ -41,7 +41,6 @@
 
  */
 
-#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -51,6 +50,13 @@
 #include <cstring>
 #include <cstdlib>
 #include <assert.h>
+
+#define CPP_IOSTREAM 1
+#if defined(CPP_IOSTREAM)
+  #include <iostream>
+#else
+  #include <cstdio>
+#endif
 
 using namespace std;
 
@@ -123,12 +129,14 @@ static void prefix_cycle(const string &s)
                 int isize = it->item_size();
                 if (isize+n <= sz && strncmp(s0, p, isize) == 0) {
                     // 可以繼續加長: Cycle(n, isize) -> Cycle(n+isize, isize)
+#if defined(CPP_IOSTREAM)
                     if (debug) {
                         cout << "--> Expand ("
                             << it->total_size() << ", " << isize << ")"
                             << " to (" << n+isize << ", " << isize << ")"
                             << endl;
                     }
+#endif
                     cycle.insert(Cycle(n+isize, isize));        // 新增加長的
                 }
                 ++it;
@@ -136,10 +144,12 @@ static void prefix_cycle(const string &s)
 
             // 是否為新的前缀循環: s[0..n-1] == s[n..2n-1]
             if (2*n <= sz && strncmp(s0, p, n) == 0) {
+#if defined(CPP_IOSTREAM)
                 if (debug) {
                     cout << "--> New (" << 2*n << ", "
                         << n << ")" << endl;
                 }
+#endif
                 cycle.insert(Cycle(2*n, n));
             }
         }
@@ -159,7 +169,11 @@ static void prefix_cycle(const string &s)
 
             // 不要輸出(項次長度)倍數的組合
             if (is_duplicated(outList, it) == false) {
+#if defined(CPP_IOSTREAM)
                 cout << it->total_size() << ' ' << it->repeat_count() << endl;
+#else
+                printf("%d %d\n", it->total_size(), it->repeat_count());
+#endif
             }
             cycle.erase(it);
         }
@@ -170,27 +184,51 @@ static void prefix_cycle(const string &s)
 
 //---------------------------------------------------------------------------
 
+#if !defined(CPP_IOSTREAM)
+static string get_string(int size)
+{
+    string s(size, ' ');
+    if (fgets(&s[0], s.size()+1, stdin) == 0) s.clear();
+    return s;
+}
+#endif
+
 static void run(int max_num)
 {
     int nCase = 0;
     int n;
+#if defined(CPP_IOSTREAM)
     while (cin >> n && n > 0) {
         string s;
         cin >> s;
+#else
+    while (scanf("%d\n", &n) > 0 && n > 0) {
+        string s = get_string(n);
+#endif
         //assert(s.size() == n);
 
         nCase++;
+#if defined(CPP_IOSTREAM)
         cout << "Test case #" << nCase << endl;
         if (debug) cout << "--> string: " << s << endl;
+#else
+        printf("Test case #%d\n", nCase);
+#endif
         prefix_cycle(s);
+#if defined(CPP_IOSTREAM)
         cout << endl;
+#else
+        printf("\n");
+#endif
     }
 }
 
 int main (int argc, char *argv[])
 {
+#if defined(CPP_IOSTREAM)
     std::ios_base::sync_with_stdio(false);
     cin.tie(NULL);
+#endif
 
     int max_num = MAX_SIZE;
     {
@@ -205,6 +243,7 @@ int main (int argc, char *argv[])
                     max_num = atoi(p);
                     if (max_num < 10) max_num = MAX_SIZE;
                 }
+#if defined(CPP_IOSTREAM)
             } else if (strncmp(argv[n], "-i:", 3) == 0) {
                 ifstream in(&argv[n][3]);
                 //streambuf *cinbuf = cin.rdbuf(); //save old buf
@@ -212,6 +251,7 @@ int main (int argc, char *argv[])
                 run(max_num);
                 //cin.rdbuf(cinbuf);
                 return 0;
+#endif
             }
             n++;
         }

@@ -114,7 +114,7 @@ class Dictionary {
 
   public:
     void add(const string &word) {
-        _dict.insert(pair<string, int>(word, _dict.size()));
+        _dict[word] = _dict.size();
     }
     bool exist(const string &word) {
         return _dict.find(word) != _dict.end();
@@ -126,7 +126,8 @@ void Dictionary::find_similar(const string &word)
 {
     Dict::const_iterator it = _dict.find(word);
     if (it != _dict.end()) {
-        _similar.insert(pair<int, string>(it->second, it->first));
+        // key: seqno of word, value: similar word
+        _similar[it->second] = it->first;
     }
 }
 
@@ -139,11 +140,11 @@ string Dictionary::similar_words(const string &word)
     if (wsize > 1) {
         string s;
         s.resize(wsize-1);
+        copy(word.begin()+1, word.end(), s.begin());
         for (int i = 0; i < wsize; i++) {
-            copy(word.begin(), word.begin()+i, s.begin());
-            copy(word.begin()+i+1, word.end(), s.begin()+i);
             if (debug > 1) cout << "> 1: " << s << endl;
             find_similar(s);
+            s[i] = word[i];
         }
     }
 
@@ -167,14 +168,14 @@ string Dictionary::similar_words(const string &word)
     if (wsize > 0) {
         string s;
         s.resize(wsize+1);
+        copy(word.begin(), word.end(), s.begin()+1);
         for (int i = 0; i <= wsize; i++) {
-            copy(word.begin(), word.begin()+i, s.begin());
-            copy(word.begin()+i, word.end(), s.begin()+i+1);
             for (char j = 'a'; j <= 'z'; j++) {
                s[i] = j;
                if (debug > 1) cout << "> 3: " << s << endl;
                find_similar(s);
-           }
+            }
+            s[i] = word[i];
         }
     }
 

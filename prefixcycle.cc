@@ -94,40 +94,59 @@ typedef set<Cycle> PrefixCycle;
 typedef set<Cycle>::iterator ItCycle;
 typedef vector<ItCycle> vItCycle;
 
-// 返回 x->item_size() 不得為現有 list[]->item_size() 的倍數
-static bool is_duplicated(const vItCycle &list, const ItCycle &x)
-{
-    int isize = x->item_size();
-    int isize2 = isize / 2;
-    for (int i = 0; i < list.size(); i++) {
-        const ItCycle &it = list[i];
-        if (isize % it->item_size() == 0) return true;
-        if (it->item_size() > isize2) break;
-    }
-    return false;
-}
-
 static void prefix_cycle(const string &s)
 {
     int sz = s.size();
     if (sz < 2) return;
 
-    PrefixCycle cycle;          // 現有的前缀循環記錄(總長度, 項次長度)
-    const char *s0 = s.c_str(); // s0 指到字串開頭
-    const char c0 = *s0;        // c0 第一個字元
-    const char *p = s0 + 1;
+    vector<bool> skip(sz+1, false); // 倍數的循環不用處理
+    PrefixCycle cycle;              // 現有的前缀循環記錄(總長度, 項次長度)
+    const char *s0 = s.c_str();     // s0 指到字串開頭
+    const char c0 = *s0;            // c0 第一個字元
+
+    // 優化第1個字元的重複
+    for (int k = 1; k < sz && s0[k] == c0;) {
+        k++;
+        cycle.insert(Cycle(k, 1));
+        skip[k] = true;
+    }
+
+#if 0
+    // 優化前2個字元的重複
+    if (sz > 4 && !skip[2]) {
+        const char c1 = s[1];
+        for (int k = 2; k < sz && s0[k] == c0 && s0[k+1] == c1;) {
+            k += 2;
+            cycle.insert(Cycle(k, 2));
+            skip[k] = true;
+        }
+    }
+
+    // 優化前3個字元的重複
+    if (sz > 6 && !skip[3]) {
+        const char c1 = s[1];
+        const char c2 = s[2];
+        for (int k = 3; k < sz && s0[k] == c0 && s0[k+1] == c1 && s0[k+2] == c2;) {
+            k += 3;
+            cycle.insert(Cycle(k, 3));
+            skip[k] = true;
+        }
+    }
+#endif
 
     // 處理長度為 n: 檢查續接及輸出
+    const char *p = s0 + 1;
     for (int n = 1; n <= sz; n++, p++) {
         // 若 s[n] == s[0] 則測試是否可續接
-        if (*p == c0) { // don't care last char, it's always EOS('\0')
+        // don't care last char, it's always EOS('\0')
+        if (*p == c0 && !skip[n]) {
 
             // 和現有前缀循環記錄比較是否可以繼續加長
             // 找出總長度為 n 的集合來逐一比較
             ItCycle it = cycle.lower_bound(Cycle(n, 0));
             while (it != cycle.end() && it->total_size() == n) {
                 int isize = it->item_size();
-                if (isize+n <= sz && strncmp(s0, p, isize) == 0) {
+                if (isize+n <= sz && memcmp(s0, p, isize) == 0) {
                     // 可以繼續加長: Cycle(n, isize) -> Cycle(n+isize, isize)
 #if defined(CPP_IOSTREAM)
                     if (debug) {
@@ -142,15 +161,18 @@ static void prefix_cycle(const string &s)
                 ++it;
             }
 
-            // 是否為新的前缀循環: s[0..n-1] == s[n..2n-1]
-            if (2*n <= sz && strncmp(s0, p, n) == 0) {
+            // 是否為新的前缀循環(2...x倍): s[0..n-1] == s[n..2n-1]
+            int k = n;
+            while (k+n <= sz && memcmp(s0, s0+k, n) == 0) {
+                k += n;
 #if defined(CPP_IOSTREAM)
                 if (debug) {
-                    cout << "--> New (" << 2*n << ", "
+                    cout << "--> New (" << k << ", "
                         << n << ")" << endl;
                 }
 #endif
-                cycle.insert(Cycle(2*n, n));
+                cycle.insert(Cycle(k, n));
+                skip[k] = true;
             }
         }
 
@@ -167,14 +189,11 @@ static void prefix_cycle(const string &s)
             ItCycle it = outList.back();
             outList.pop_back();
 
-            // 不要輸出(項次長度)倍數的組合
-            if (is_duplicated(outList, it) == false) {
 #if defined(CPP_IOSTREAM)
-                cout << it->total_size() << ' ' << it->repeat_count() << endl;
+            cout << it->total_size() << ' ' << it->repeat_count() << endl;
 #else
-                printf("%d %d\n", it->total_size(), it->repeat_count());
+            printf("%d %d\n", it->total_size(), it->repeat_count());
 #endif
-            }
             cycle.erase(it);
         }
     }

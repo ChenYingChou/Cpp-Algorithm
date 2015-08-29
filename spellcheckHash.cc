@@ -85,7 +85,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <assert.h>
-#include <HashList.h>
+#include <HashList.h>       // 用我自己寫的 THashList, 其實是 HashMap 架構
 
 #define CPP_IOSTREAM 1
 #if defined(CPP_IOSTREAM)
@@ -101,7 +101,7 @@ using namespace tony;
   #define nullptr 0
 #endif
 
-typedef THashList<int> Dict;
+typedef THashList<int> Dict;    // Key 一定是字串, Value 則可自定
 typedef map<int, string> Word;
 
 const int HASH_SIZE = 20000;
@@ -112,8 +112,8 @@ static int debug;
 
 class Dictionary {
   private:
-    Dict _dict;             // 將整個字典依單字長度分打散到各個小字典
-    Word _similar;
+    Dict _dict;             // 字典以 HashList 來儲存, 過於擁塞時會自動擴大
+    Word _similar;          // similar_words 儲存類似單字用
 
     void find_similar(const string &word);
 
@@ -187,8 +187,7 @@ string Dictionary::similar_words(const string &word)
 
     ostringstream os;
     for (Word::const_iterator it = _similar.begin(); it != _similar.end(); ++it) {
-        if (it != _similar.begin()) os << ' ';
-        os << it->second;
+        os << ' ' << it->second;
     }
     _similar.clear();
     return os.str();
@@ -238,7 +237,7 @@ static void run(int max_num)
             cout << s << " is correct" << endl;
         } else {
             string ss = Dict.similar_words(s);
-            cout << s << ": " << ss << endl;
+            cout << s << ':' << ss << endl;
         }
     }
 }

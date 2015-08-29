@@ -198,8 +198,7 @@ string Dictionary::similar_words(const string &word)
 
     ostringstream os;
     for (Word::const_iterator it = _similar.begin(); it != _similar.end(); ++it) {
-        if (it != _similar.begin()) os << ' ';
-        os << it->second;
+        os << ' ' << it->second;
     }
     _similar.clear();
     return os.str();
@@ -249,7 +248,7 @@ static void run()
             cout << s << " is correct" << endl;
         } else {
             string ss = Dict.similar_words(s);
-            cout << s << ": " << ss << endl;
+            cout << s << ':' << ss << endl;
         }
     }
 }

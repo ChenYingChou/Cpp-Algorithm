@@ -80,6 +80,7 @@
 #include <sstream>
 #include <string>
 #include <map>
+#include <vector>
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
@@ -100,6 +101,9 @@ using namespace std;
 
 typedef map<string, int> Dict;
 typedef map<int, string> Word;
+typedef vector<Dict> vDict;
+
+const int MAX_WORD_SIZE = 15;
 
 static int debug;
 
@@ -107,25 +111,38 @@ static int debug;
 
 class Dictionary {
   private:
-    Dict _dict;
+    int _dict_size;             // 整個字典有多少單字, 用來記錄各單字的唯一序號
+    vDict _dictionary;          // 將整個字典依單字長度分打散到各個小字典
     Word _similar;
 
     void find_similar(const string &word);
 
   public:
+    Dictionary() : _dict_size(0) {
+        if (_dictionary.capacity() < MAX_WORD_SIZE) {
+            _dictionary.reserve(MAX_WORD_SIZE);
+        }
+    }
     void add(const string &word) {
-        _dict[word] = _dict.size();
+        int n = word.size();
+        if (n >= _dictionary.size()) _dictionary.resize(n+1);
+        Dict &dict = _dictionary[n];
+        dict[word] = ++_dict_size;      // seqno of word
     }
     bool exist(const string &word) {
-        return _dict.find(word) != _dict.end();
+        int n = word.size();
+        Dict &dict = _dictionary[n];
+        return dict.find(word) != dict.end();
     }
     string similar_words(const string &word);
 };
 
 void Dictionary::find_similar(const string &word)
 {
-    Dict::const_iterator it = _dict.find(word);
-    if (it != _dict.end()) {
+    int n = word.size();
+    Dict &dict = _dictionary[n];
+    Dict::const_iterator it = dict.find(word);
+    if (it != dict.end()) {
         // key: seqno of word, value: similar word
         _similar[it->second] = it->first;
     }
@@ -136,7 +153,7 @@ string Dictionary::similar_words(const string &word)
     _similar.clear();
     int wsize = word.size();
 
-    // 刪除任一字母: 單字長度
+    // 刪除任一字母: 單字長度 <= 15 次
     if (wsize > 1) {
         string s;
         s.resize(wsize-1);
@@ -148,7 +165,7 @@ string Dictionary::similar_words(const string &word)
         }
     }
 
-    // 替換任意字母: 單字長度 x (26-1) <= 15 * 25 = 375
+    // 替換任意字母: 單字長度 x (26-1) <= 15 * 25 = 375 次
     if (wsize > 0) {
         string s(word);
         for (int i = 0; i < wsize; i++) {
@@ -164,7 +181,7 @@ string Dictionary::similar_words(const string &word)
         }
     }
 
-    // 任意點加字母: (單字長度+1) x 26 <= 16 * 26 = 416
+    // 任意點加字母: (單字長度+1) x 26 <= 16 * 26 = 416 次
     if (wsize > 0) {
         string s;
         s.resize(wsize+1);

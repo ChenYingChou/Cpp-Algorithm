@@ -51,7 +51,9 @@
 #include <cstdlib>
 #include <assert.h>
 
-#define CPP_IOSTREAM 1
+#define USE_KMP 1
+//#define CPP_IOSTREAM 1
+
 #if defined(CPP_IOSTREAM)
   #include <iostream>
 #else
@@ -64,18 +66,116 @@ using namespace std;
   #define nullptr 0
 #endif
 
+typedef vector<int> vint;
+
 const int MAX_SIZE = 1000000;
 
 static int debug;
 
 //---------------------------------------------------------------------------
 
+class KMP {
+  private:
+    string _pattern;
+    vint _next;
+
+    void make_table();
+  public:
+    KMP(const string &s) : _pattern(s) { make_table(); }
+    void output();
+    bool find(const string &text);
+};
+
+void KMP::make_table()
+{
+    int sz = _pattern.size();
+    if (sz <= 1) return;
+
+    // next[i]: where to go(what to compare next) if mismatch occur at i
+    _next.resize(sz+1);
+    _next[0] = 0;   // obviously we'll stay at zero only even if its a mismatch
+    _next[1] = 0;   // just think naturally where will u go if mismatch occur at 1
+
+    const char *p = _pattern.data();
+    int *next = _next.data();
+    for (int k = 1; k < sz; k++) {
+        // 計算下一個 next[k+1] 值: 應題目要需求多算一項, 即 next[0..字串長度]
+        int curr = next[k];
+
+        /* This is the case for mismatch:
+         * if mismatch occur at k we seek to find the first occurence
+         * of pattern[k-1] in the pattern such that the sequence preceding
+         * k-1(0...k-2) locations have alreaddy been matched
+         */
+        while (curr && p[curr] != p[k]) {
+            curr = next[curr];
+        }
+
+        // Case for match: length of prematched sequence increments by 1
+        next[k+1] = p[curr] == p[k] ? curr+1 : 0;
+    }
+}
+
+/* http://www.2cto.com/kf/201504/387671.html
+
+   思路：kmp字符串匹配的性质运用。
+
+   对于前 i 个字符，如果 next[i] 不等于零，说明在此字符串的前缀中，有一部分
+   [0,next[i]] 和本字符串 [i-next[i],i] 的这一部分是相同的。如果这 i 个字符
+   组成一个周期串，那么错开的部分 [next[i],i] 恰好是一个循环节。换句话说，
+   如果满足 next[i] 不等于零 && [next[i],i] 是循环节这两点，就可以说明前 i
+   个字符组成一个周期串。
+
+*/
+void KMP::output()
+{
+    for (int i = 2; i < _next.size(); i++) {
+        if (_next[i] != 0 && i % (i-_next[i]) == 0) {
+#if defined(CPP_IOSTREAM)
+            cout << i << ' ' << (i / (i-_next[i])) << endl;
+#else
+            printf("%d %d\n", i, i / (i-_next[i]));
+#endif
+        }
+    }
+}
+
+bool KMP::find(const string &text)
+{
+    int curr = 0; // curr: All locations before curr have been matched.
+    for (int i = 0; i < text.size(); i++) {
+        /* Key points:
+          1. Mismatch occurs at curr.
+          2. Suppose anand is compared with ananandnd.
+          3. Mismatch occur at a i.e. cur=4.  anand.
+          4. But we shift as above v[cur]=2 (and it matches 'a'). So now we
+             only compare and.
+          5. We have saved our work of starting from beginning.
+          6. This was luckily the longest possible one.In general,we try to
+             save even the the smaller amount of work unitl we reach index 0
+             in the pattern.
+        */
+        while (curr > 0 && _pattern[curr] != text[i]) {
+            curr = _next[curr];
+        }
+
+        if (_pattern[curr] == text[i]) {
+            // if all all locations before index p.size() have been matched
+            if (++curr == _pattern.size()) return true;
+        }
+    }
+
+    return false;
+}
+
+//---------------------------------------------------------------------------
+
 class Cycle {
-private:
+  private:
     int _total_size;
     int _item_size;
 
-public:
+  public:
     typedef Cycle *iterator;
     typedef const Cycle *const_iterator;
     Cycle(int total_size, int item_size)
@@ -220,7 +320,14 @@ static void run(int max_num)
 #else
         printf("Test case #%d\n", nCase);
 #endif
+
+#if defined(USE_KMP)
+        KMP kmp(s);
+        kmp.output();
+#else
         prefix_cycle(s);
+#endif
+
 #if defined(CPP_IOSTREAM)
         cout << endl;
 #else

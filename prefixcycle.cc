@@ -84,9 +84,10 @@ public:
     int item_size() const { return _item_size; }
     int repeat_count() const { return _total_size / _item_size; }
     bool operator< (const Cycle &a) const {
-        // (總長度, 項次長度)由小到大
+        // 總長度由小到大
         if (_total_size != a._total_size) return _total_size < a._total_size;
-        return _item_size < a._item_size;
+        // 項次長度由大到小: 相當於重複次數由小到大
+        return a._item_size < _item_size;
     }
 };
 
@@ -99,7 +100,8 @@ static void prefix_cycle(const string &s)
     int sz = s.size();
     if (sz < 2) return;
 
-    vector<bool> skip(sz+1, false); // 倍數的循環不用處理
+    int sz2 = sz / 2 + 1;
+    vector<bool> skip(sz2, false);  // 倍數的循環不用處理
     PrefixCycle cycle;              // 現有的前缀循環記錄(總長度, 項次長度)
     const char *s0 = s.c_str();     // s0 指到字串開頭
     const char c0 = *s0;            // c0 第一個字元
@@ -108,7 +110,7 @@ static void prefix_cycle(const string &s)
     for (int k = 1; k < sz && s0[k] == c0;) {
         k++;
         cycle.insert(Cycle(k, 1));
-        skip[k] = true;
+        if (k < sz2) skip[k] = true;
     }
 
 #if 0
@@ -118,7 +120,7 @@ static void prefix_cycle(const string &s)
         for (int k = 2; k < sz && s0[k] == c0 && s0[k+1] == c1;) {
             k += 2;
             cycle.insert(Cycle(k, 2));
-            skip[k] = true;
+            if (k < sz2) skip[k] = true;
         }
     }
 
@@ -129,39 +131,18 @@ static void prefix_cycle(const string &s)
         for (int k = 3; k < sz && s0[k] == c0 && s0[k+1] == c1 && s0[k+2] == c2;) {
             k += 3;
             cycle.insert(Cycle(k, 3));
-            skip[k] = true;
+            if (k < sz2) skip[k] = true;
         }
     }
 #endif
 
-    // 處理長度為 n: 檢查續接及輸出
+    // 處理長度為 n: 檢查續接及輸出, 只要測試到一半的長度即可
     const char *p = s0 + 1;
-    for (int n = 1; n <= sz; n++, p++) {
-        // 若 s[n] == s[0] 則測試是否可續接
+    for (int n = 1; n < sz2; n++, p++) {
+        // 若 s[n] == s[0] 則測試區塊長度n是否為循環
         // don't care last char, it's always EOS('\0')
         if (*p == c0 && !skip[n]) {
-
-            // 和現有前缀循環記錄比較是否可以繼續加長
-            // 找出總長度為 n 的集合來逐一比較
-            ItCycle it = cycle.lower_bound(Cycle(n, 0));
-            while (it != cycle.end() && it->total_size() == n) {
-                int isize = it->item_size();
-                if (isize+n <= sz && memcmp(s0, p, isize) == 0) {
-                    // 可以繼續加長: Cycle(n, isize) -> Cycle(n+isize, isize)
-#if defined(CPP_IOSTREAM)
-                    if (debug) {
-                        cout << "--> Expand ("
-                            << it->total_size() << ", " << isize << ")"
-                            << " to (" << n+isize << ", " << isize << ")"
-                            << endl;
-                    }
-#endif
-                    cycle.insert(Cycle(n+isize, isize));        // 新增加長的
-                }
-                ++it;
-            }
-
-            // 是否為新的前缀循環(2...x倍): s[0..n-1] == s[n..2n-1]
+            // 是否為新的前缀循環(2...X倍): s[0..n-1] == s[n..2n-1]
             int k = n;
             while (k+n <= sz && memcmp(s0, s0+k, n) == 0) {
                 k += n;
@@ -172,23 +153,23 @@ static void prefix_cycle(const string &s)
                 }
 #endif
                 cycle.insert(Cycle(k, n));
-                skip[k] = true;
+                if (k < sz2) skip[k] = true;
             }
         }
 
-        // 蒐集總長度為 n 的記錄
+        // 蒐集總長度為 n 的記錄:
+        // set<Cycle> 同一總長度集合會依項次長度大到小排, 故使用 lower_bound()
+        // 時要指定項次長度為最大者, 這樣才會找到該總長度集合的第一筆
         vItCycle outList;
-        ItCycle it = cycle.lower_bound(Cycle(n, 0));
+        ItCycle it = cycle.lower_bound(Cycle(n, n));
         while (it != cycle.end() && it->total_size() == n) {
             outList.push_back(it);
             ++it;
         }
 
-        // 輸出並刪除之: 輸出依重複次數小到大, 即相當於項次長度大到小
-        while (!outList.empty()) {
-            ItCycle it = outList.back();
-            outList.pop_back();
-
+        // 輸出並刪除之: 輸出依重複次數小到大
+        for (vItCycle::iterator p = outList.begin(); p != outList.end(); ++p) {
+            ItCycle &it = *p;
 #if defined(CPP_IOSTREAM)
             cout << it->total_size() << ' ' << it->repeat_count() << endl;
 #else
@@ -198,7 +179,13 @@ static void prefix_cycle(const string &s)
         }
     }
 
-    assert(cycle.size() == 0);
+    for (ItCycle it = cycle.begin(); it != cycle.end(); ++it) {
+#if defined(CPP_IOSTREAM)
+        cout << it->total_size() << ' ' << it->repeat_count() << endl;
+#else
+        printf("%d %d\n", it->total_size(), it->repeat_count());
+#endif
+    }
 }
 
 //---------------------------------------------------------------------------

@@ -52,7 +52,7 @@
 #include <assert.h>
 
 #define USE_KMP 1
-//#define CPP_IOSTREAM 1
+#define CPP_IOSTREAM 1
 
 #if defined(CPP_IOSTREAM)
   #include <iostream>
@@ -93,11 +93,12 @@ void KMP::make_table()
 
     // next[i]: where to go(what to compare next) if mismatch occur at i
     _next.resize(sz+1);
-    _next[0] = 0;   // obviously we'll stay at zero only even if its a mismatch
-    _next[1] = 0;   // just think naturally where will u go if mismatch occur at 1
 
     const char *p = _pattern.data();
     int *next = _next.data();
+#if 0
+    next[0] = 0;    // obviously we'll stay at zero only even if its a mismatch
+    next[1] = 0;    // just think naturally where will u go if mismatch occur at 1
     for (int k = 1; k < sz; k++) {
         // 計算下一個 next[k+1] 值: 應題目要需求多算一項, 即 next[0..字串長度]
         int curr = next[k];
@@ -114,6 +115,18 @@ void KMP::make_table()
         // Case for match: length of prematched sequence increments by 1
         next[k+1] = p[curr] == p[k] ? curr+1 : 0;
     }
+#else
+    next[0] = -1;
+    int k = 0;
+    int curr = next[k];
+    while (k < sz) {
+        if (curr == -1 || p[curr] == p[k]) {
+            next[++k] = ++curr;
+        } else {
+            curr = next[curr];
+        }
+    }
+#endif
 }
 
 /* http://www.2cto.com/kf/201504/387671.html
@@ -146,10 +159,10 @@ bool KMP::find(const string &text)
     for (int i = 0; i < text.size(); i++) {
         /* Key points:
           1. Mismatch occurs at curr.
-          2. Suppose anand is compared with ananandnd.
-          3. Mismatch occur at a i.e. cur=4.  anand.
-          4. But we shift as above v[cur]=2 (and it matches 'a'). So now we
-             only compare and.
+          2. Suppose 'anand' is compared with 'ananandnd'.
+          3. Mismatch occur at a i.e. cur=4. 'anand'.
+          4. But we shift as above next[cur]=2 (and it matches 'a'). So now
+             we only compare 'and'.
           5. We have saved our work of starting from beginning.
           6. This was luckily the longest possible one.In general,we try to
              save even the the smaller amount of work unitl we reach index 0

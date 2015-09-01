@@ -122,6 +122,9 @@ void KMP::make_table()
     while (k < sz) {
         if (curr == -1 || p[curr] == p[k]) {
             next[++k] = ++curr;
+            //--> optimize for find(), but not for this exercise
+            // k++; curr++;
+            // next[k] = p[curr] == p[k] ? next[curr] : curr;
         } else {
             curr = next[curr];
         }
@@ -168,14 +171,15 @@ bool KMP::find(const string &text)
              save even the the smaller amount of work unitl we reach index 0
              in the pattern.
         */
-        while (curr > 0 && _pattern[curr] != text[i]) {
+        if (curr < 0) curr = 0;
+        do {
+            if (_pattern[curr] == text[i]) {
+                // if all all locations before index p.size() have been matched
+                if (++curr == _pattern.size()) return true;
+                break;
+            }
             curr = _next[curr];
-        }
-
-        if (_pattern[curr] == text[i]) {
-            // if all all locations before index p.size() have been matched
-            if (++curr == _pattern.size()) return true;
-        }
+        } while (curr >= 0);
     }
 
     return false;

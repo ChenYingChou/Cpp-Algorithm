@@ -243,8 +243,10 @@ static void run(int max_num)
 
 int main (int argc, char *argv[])
 {
+#if defined(CPP_IOSTREAM)
     std::ios_base::sync_with_stdio(false);
     cin.tie(NULL);
+#endif
 
     int max_num = HASH_SIZE;
     {

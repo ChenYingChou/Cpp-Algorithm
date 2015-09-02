@@ -90,61 +90,61 @@ struct Node {
 
     Node(char c) : sym(c), left(nullptr), right(nullptr) {}
     Node(char c, pNode left, pNode right) : sym(c), left(left), right(right) {}
-    void free();
-    string postorder() const;
-    string inorder() const;
-    long eval() const;
 };
 
-void Node::free()
+static void free_node(pNode node)
 {
-    if (left) {
-        left->free();
-        left = nullptr;
+    if (node) {
+        free_node(node->left);
+        free_node(node->right);
+        delete node;
     }
-    if (right) {
-        right->free();
-        right = nullptr;
-    }
-    delete this;
 }
 
-string Node::postorder() const
+// depth of edges == height (zero for one node only)
+static int depth(pNode node)
+{
+    if (node == nullptr) return -1;
+    return max(depth(node->left), depth(node->right)) + 1;
+}
+
+static string postorder(pNode node)
 {
     string s;
-    if (left) s = left->postorder();
-    if (right) s.append(right->postorder());
-    s.push_back(sym);
+    if (node) {
+        s = postorder(node->left);
+        s.append(postorder(node->right));
+        s.push_back(node->sym);
+    }
     return s;
 }
 
-string Node::inorder() const
+static string inorder(pNode node)
 {
     string s;
-    if (left) {
+    if (node) {
         s.push_back('(');
-        s.append(left->inorder());
-    }
-    s.push_back(sym);
-    if (right) {
-        s.append(right->inorder());
+        s.append(inorder(node->left));
+        s.push_back(node->sym);
+        s.append(inorder(node->right));
         s.push_back(')');
     }
     return s;
 }
 
-long Node::eval() const
+static long eval(pNode node)
 {
+    if (node == nullptr) return 0;
+
+    char sym = node->sym;
     if (isdigit(sym)) {
         return sym - '0';
     } else if (isalpha(sym)) {
         return vars[sym & 0x1f];
     }
 
-    long lval = 0;
-    if (left) lval = left->eval();
-    long rval = 0;
-    if (right) rval = right->eval();
+    long lval = eval(node->left);
+    long rval = eval(node->right);
 
     switch(sym) {
       case '+':
@@ -226,16 +226,16 @@ class ExprTree {
     pNode _root;
     StkInt _op;
     StkNode _operand;
+
     void do_operation();
+    string inorder(pNode node) { return ::inorder(node); }
+
   public:
     ExprTree(const string &s);
     ~ExprTree();
-    string postorder(const pNode p) { return p ? p->postorder() : ""; }
-    string postorder() { return postorder(_root); }
-    string inorder(const pNode p) { return p ? p->inorder() : ""; }
-    string inorder() { return inorder(_root); }
-    long eval(const pNode p) { return p ? p->eval() : 0; }
-    long eval() { return eval(_root); }
+    string postorder() { return ::postorder(_root); }
+    string inorder() { return ::inorder(_root); }
+    long eval() { return ::eval(_root); }
     void output_tree();
 };
 
@@ -247,17 +247,17 @@ void ExprTree::do_operation()
 
    pNode right = _operand.top();
    _operand.pop();
-   if (debug > 1) cout << "--> pop right operand: " << right->inorder() << endl;
+   if (debug > 1) cout << "--> pop right operand: " << inorder(right) << endl;
 
    pNode left = _operand.top();
    _operand.pop();
-   if (debug > 1) cout << "--> pop left operand: " << left->inorder() << endl;
+   if (debug > 1) cout << "--> pop left operand: " << inorder(left) << endl;
 
    _operand.push(new Node(op, left, right));
    if (debug) cout << "--> expression: "
-       << left->inorder()
+       << inorder(left)
        << ' ' << op << ' '
-       << right->inorder()
+       << inorder(right)
        << endl;
 }
 
@@ -322,7 +322,7 @@ ExprTree::ExprTree(const string &s)
 ExprTree::~ExprTree()
 {
     if (_root) {
-        _root->free();
+        free_node(_root);
         _root = nullptr;
     }
 }

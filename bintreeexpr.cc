@@ -58,6 +58,7 @@
 #include <sstream>
 #include <string>
 #include <stack>
+#include <queue>
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
@@ -84,11 +85,12 @@ typedef stack<pNode> StkNode;
 typedef stack<int> StkInt;
 
 struct Node {
-    char sym;           // '+', '-', '*', '/', '^' or 'a'~'z' or '0'~'9'
     pNode left;
     pNode right;
+    char sym;           // '+', '-', '*', '/', '^' or 'a'~'z' or '0'~'9'
+    int tag;
 
-    Node(char c) : sym(c), left(nullptr), right(nullptr) {}
+    Node(char c) : sym(c), left(nullptr), right(nullptr), tag(0) {}
     Node(char c, pNode left, pNode right) : sym(c), left(left), right(right) {}
 };
 
@@ -101,11 +103,12 @@ static void free_node(pNode node)
     }
 }
 
-// depth of edges == height (zero for one node only)
-static int depth(pNode node)
+// height of tree (one node counts as one)
+static int depth(pNode node, int seqno)
 {
-    if (node == nullptr) return -1;
-    return max(depth(node->left), depth(node->right)) + 1;
+    if (node == nullptr) return 0;
+    node->tag = seqno;
+    return max(depth(node->left, 2*seqno), depth(node->right, 2*seqno+1)) + 1;
 }
 
 static string postorder(pNode node)
@@ -178,6 +181,14 @@ inline const char *next_sym(const char *p)
 {
     while (isspace(*p)) p++;
     return p;
+}
+
+static string trim(const string &s)
+{
+    for (int i = s.size(); --i >= 0;) {
+        if (!isspace(s[i])) return s.substr(0, i+1);
+    }
+    return s;
 }
 
 inline int PRIORITY(int n)
@@ -329,7 +340,48 @@ ExprTree::~ExprTree()
 
 void ExprTree::output_tree()
 {
-    cout << "tree" << endl;
+    if (_root == nullptr) {
+        cout << "Empty tree." << endl;
+        return;
+    }
+
+    int level = depth(_root, 0);    // 1~N
+    int width = 1 << level;         // 最底層節點x2: 最大輸出寬度
+
+    queue<pNode> Q;
+    Q.push(_root);
+
+    while (!Q.empty()) {
+        level--;
+        int pos0 = (1 << level) - 1;
+        if (debug) cout << "--> Level:" << level << " pos0:" << pos0 << endl;
+
+        string line1(width, ' ');
+        string line2(width, ' ');
+        pNode node;
+
+        Q.push(nullptr);    // 這次迴圈的結束記號
+        while ((node = Q.front()) != nullptr) {
+            Q.pop();
+            if (node->left) Q.push(node->left);
+            if (node->right) Q.push(node->right);
+
+            int pos = pos0 + (node->tag * (2 << level));
+            if (debug) {
+                cout << "--> Node: " << node->sym
+                    << ", tag:" << node->tag
+                    << ", pos:" << pos
+                    << endl;
+            }
+            line1[pos] = node->sym;
+            if (node->left) line2[pos-1] = '/';
+            if (node->right) line2[pos+1] = '\\';
+        }
+        Q.pop();
+
+        cout << trim(line1) << endl;
+        if (level > 0) cout << trim(line2) << endl;
+    }
 }
 
 //---------------------------------------------------------------------------

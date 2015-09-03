@@ -126,11 +126,16 @@ static string inorder(pNode node)
 {
     string s;
     if (node) {
-        s.push_back('(');
-        s.append(inorder(node->left));
+        bool needParen = node->left || node->right;
+        if (needParen) {
+            s.push_back('(');
+            s.append(inorder(node->left));
+        }
         s.push_back(node->sym);
-        s.append(inorder(node->right));
-        s.push_back(')');
+        if (needParen) {
+            s.append(inorder(node->right));
+            s.push_back(')');
+        }
     }
     return s;
 }
@@ -170,7 +175,8 @@ static long eval(pNode node)
             return result;
         }
     }
-    assert(0);
+    cout << "*** Invalid node's operator: " << sym << endl;
+    abort();
 }
 
 //---------------------------------------------------------------------------
@@ -201,6 +207,11 @@ inline bool priority_LE(int a, int b)
     return (a >> 4) <= (b >> 4);
 }
 
+inline bool priority_LT(int a, int b)
+{
+    return (a >> 4) < (b >> 4);
+}
+
 inline char priority_to_char(int prio)
 {
     return prio_sym[prio & 0x0f];
@@ -227,10 +238,10 @@ static int priority(char c)
       case ')':
         return 0x07 + PRIORITY(0);
     }
-    cout << "*** Invalid character for operator: [" << c
-        << "], Hex=" << hex << (int)c << dec << endl;
-    assert(0);
+    return -1;
 }
+
+enum Status { S_OPERATOR, S_OPERAND };
 
 class ExprTree {
   private:
@@ -253,8 +264,17 @@ class ExprTree {
 void ExprTree::do_operation()
 {
     char op = priority_to_char(_op.top());
+   if (priority_LE(_op.top(), 0)) {
+       cout << "*** Unmatched operator: " << op << endl;
+       abort();
+   }
    _op.pop();
    if (debug > 1) cout << "--> pop op: " << op << endl;
+
+   if (_operand.size() < 2) {
+       cout << "*** Invalid expression after operator: " << op << endl;
+       abort();
+   }
 
    pNode right = _operand.top();
    _operand.pop();
@@ -272,6 +292,21 @@ void ExprTree::do_operation()
        << endl;
 }
 
+inline bool wait_operator(int status)
+{
+    return status == S_OPERATOR;
+}
+
+inline bool wait_operand(int status)
+{
+    return status == S_OPERAND;
+}
+
+inline void next_status(int &status)
+{
+    status = 1 - status;
+}
+
 ExprTree::ExprTree(const string &s)
     : _root(nullptr)
 {
@@ -279,22 +314,37 @@ ExprTree::ExprTree(const string &s)
     const int prio_leftparen = priority('(');
 
     _op.push(prio_hash);
+    int status = S_OPERAND;         // 下個狀況
     const char *p = s.c_str();
     while (*(p = next_sym(p)) != 0) {
-        if (isalnum(*p)) {
-            _operand.push(new Node(*p));
-            if (debug > 1) cout << "--> push operand: " << *p << endl;
-            p = next_sym(p+1);
-            if (*p == 0) break;
+        if (wait_operand(status) && *p != '(') {
+            if (isalnum(*p)) {
+                _operand.push(new Node(*p));
+                if (debug > 1) cout << "--> push operand: " << *p << endl;
+                p++;
+                status = S_OPERATOR;
+                continue;
+            }
+            cout << s << endl
+                << string(p-s.c_str(), ' ')
+                << "^ Need operand at here" << endl;
+            abort();
         }
 
         char c = *p++;
         int c_prio = priority(c);
+        if (c_prio < 0) {
+            cout << s << endl
+                << string(p-s.c_str()-1, ' ')
+                << "^ Need operator at here" << endl;
+            abort();
+        }
 
         switch(c) {
           case '(':
             _op.push(c_prio);
             if (debug > 1) cout << "--> push op: " << c << endl;
+            status = S_OPERAND;
             break;
           case '+':
           case '-':
@@ -306,13 +356,21 @@ ExprTree::ExprTree(const string &s)
             }
             _op.push(c_prio);
             if (debug > 1) cout << "--> push op: " << c << endl;
+            status = S_OPERAND;
             break;
           case ')':
-            while (_op.top() != prio_leftparen) {
+            while (priority_LT(prio_leftparen, _op.top())) {
                 do_operation();
+            }
+            if (priority_to_char(_op.top()) != '(') {
+                cout << s << endl
+                    << string(p-s.c_str()-1, ' ')
+                    << "^ Unmatched parentheses" << endl;
+                abort();
             }
             _op.pop();
             if (debug > 1) cout << "--> pop op: ()" << endl;
+            status = S_OPERATOR;
             break;
         }
     }
@@ -354,7 +412,9 @@ void ExprTree::output_tree()
     while (!Q.empty()) {
         level--;
         int pos0 = (1 << level) - 1;
-        if (debug) cout << "--> Level:" << level << " pos0:" << pos0 << endl;
+        if (debug > 1) {
+            cout << "--> Level:" << level << ", pos0:" << pos0 << endl;
+        }
 
         string line1(width, ' ');
         string line2(width, ' ');
@@ -367,8 +427,8 @@ void ExprTree::output_tree()
             if (node->right) Q.push(node->right);
 
             int pos = pos0 + (node->tag * (2 << level));
-            if (debug) {
-                cout << "--> Node: " << node->sym
+            if (debug > 1) {
+                cout << "--> Node:" << node->sym
                     << ", tag:" << node->tag
                     << ", pos:" << pos
                     << endl;
@@ -389,22 +449,26 @@ void ExprTree::output_tree()
 static void run(int max_num)
 {
     string s;
-    cin >> s;
+    getline(cin, s);
 
-    int n;
+    int n = 0;
     cin >> n;
     assert(n <= max_num);
+
+    if (debug) cout << "--> source: " << s << endl;
 
     fill(vars, vars+26, 0);
     for (int i = 0; i < n; i++) {
         string s;
-        int val;
+        int val = 0;
         cin >> s >> val;
         assert(!s.empty());
 
         char c = s[0];
         assert(isalpha(c));
         vars[c & 0x1f] = val;
+
+        if (debug) cout << "--> vars['" << c << "']: " << val << endl;
     }
 
     ExprTree expr(s);

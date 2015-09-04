@@ -1,4 +1,4 @@
-/* distance.cc
+/* distance.cc -- tonychen [@] finenet.com.tw
 
    描述
     给出三维空间中的n个点（不超过10个）,求出n个点两两之间的距离,并按距离由

@@ -37,13 +37,13 @@
 #include <sstream>
 #include <string>
 #include <set>
-#include <vector>
+#include <bitset>
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
 #include <assert.h>
 
-//#define CPP_IOSTREAM 1
+#define CPP_IOSTREAM 1
 #if defined(CPP_IOSTREAM)
   #include <iostream>
 #else
@@ -56,11 +56,11 @@ using namespace std;
   #define nullptr 0
 #endif
 
-typedef set<int> SetInt;
-typedef vector<bool> BitMap;
-
 const int MAX_NUM   = 100000;
 const int RANGE_NUM = 1000000;
+
+typedef set<int> SetInt;
+typedef bitset<2*RANGE_NUM+1> BitMap;
 
 static int debug;
 
@@ -94,8 +94,8 @@ static void run(int max_num)
 #endif
 
     int answer = 0;
-    BitMap S1(2*RANGE_NUM+1, false);    // Bitmap for [-RANGE_NUM ~ RANGE_NUM]
-    SetInt S2;                          // duplicated set of A
+    BitMap S1;          // Bitmap for [-RANGE_NUM ~ RANGE_NUM]
+    SetInt S2;          // duplicated set of A
 
     int smallest = RANGE_NUM;
     int largest = -RANGE_NUM;

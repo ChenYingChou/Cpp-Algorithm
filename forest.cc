@@ -123,6 +123,15 @@ static Node * get_node(istringstream &is, int &degree)
     assert(0); abort();
 }
 
+static void free_node(Node *node)
+{
+    if (node) {
+        free_node(node->child());
+        free_node(node->sibling());
+        delete node;
+    }
+}
+
 static Node * get_tree()
 {
     string s;
@@ -186,6 +195,8 @@ static void run(int max_num)
 
     walk_postorder(forest);
     cout << endl;
+
+    free_node(forest);
 }
 
 int main (int argc, char *argv[])

@@ -77,13 +77,12 @@ static void dump_list(const char *title, const vint &x)
 }
 
 class UnionFind {
-private:
-    vint _id;       // id[p] = parent of p (p=1..N)
-    vint _sz;       // sz[p] = number of objects in subtree rooted at p
-    vint _eat;      // eat[p] = p eats eat[p]
-    int _count;     // number of components (not include id[0]
+  private:
+    vint _id;       // id[p] = p的父節點 (p=1..N)
+    vint _sz;       // sz[p] = p節點的權重 (p子樹的節點數, 含p)
+    vint _rt;       // rt[p] = p和父節點id[p]關係, 0:同類, 1:id[p]吃p, 2:p吃id[p]
+    int _count;     // number of components (not include id[0])
 
-public:
     void dump() const {
         cout << "    " << setfill(' ');
         for (int i = 0; i < _id.size(); i++) {
@@ -93,94 +92,90 @@ public:
 
         dump_list(" id:", _id);
         dump_list(" sz:", _sz);
-        dump_list("eat:", _eat);
+        dump_list(" rt:", _rt);
     }
+
+  public:
+    int count() const { return _count; }
+    bool Connected(int p, int q) { return Find(p) == Find(q); }
+
     UnionFind(int N) {
         _count = N;
         _id.resize(N+1);
         _sz.resize(N+1, 1);
-        _eat.resize(N+1, 0);
+        _rt.resize(N+1, 0);
         for (int i = 0; i <= N; i++) {
             _id[i] = i;
         }
     }
-    int count() const { return _count; }
-    bool Connected(int p, int q) { return Find(p) == Find(q); }
 
     int Find(int p) {
         if (p <= 0) return p;
-        if (_id[p] == p) return p;
-        _id[p] = Find(_id[p]);
+        int pid = _id[p];
+        if (pid == p) return p;
+
+        _id[p] = Find(pid);                     // p 的新父節點
+        _rt[p] = (_rt[p] + _rt[pid]) % 3;       // p 和新父節點的關係
         return _id[p];
     }
 
+    /*  _rt[p]  _rt[q] | Relation: (3+_rt[q]-_rt[p]) % 3
+       ----------------+--------------
+          0       0    |    0   同類
+          0       1    |    1   p吃q
+          0       2    |    2   q吃p
+       ----------------+--------------
+          1       0    |    2   q吃p
+          1       1    |    0   同類
+          1       2    |    1   p吃q
+       ----------------+--------------
+          2       0    |    1   p吃q
+          2       1    |    2   q吃p
+          2       2    |    0   同類
+       ----------------+--------------
+     */
+    int Relation(int p, int q) {
+        if (Find(p) != Find(q)) return -1;      // 無關係
+        return (3 + _rt[q] - _rt[p]) % 3;       // 0:同類, 1:p吃q, 2:q吃p
+    }
+
     bool Eat(int p, int q) {
-        int root = Find(p);
-        int eaten = Find(_eat[root]);
-        if (_eat[root] != eaten) _eat[root] = eaten;
-        return eaten == Find(q);
+        return Relation(p, q) == 1;
     }
 
-    // return p eats someone and someone eats q
-    bool EatEat(int p, int q) {
-        int root = Find(p);
-        int eaten = Find(_eat[root]);
-        if (eaten != _eat[root]) _eat[root] = eaten;
-        return Eat(eaten, q);
-    }
-
-    int set_eat(int p, int q) {
-        int rootP = Find(p);
-        int rootQ = Union(q, _eat[rootP]);
-        if (rootQ <= 0) return rootQ;
-        _eat[rootP] = rootQ;
-        return rootP;
-    }
-
-    int Union(int p, int q) {
+    int Union(int p, int q, int p2q_relation) {
         int rootP = Find(p);
         int rootQ = Find(q);
         if (rootP == rootQ || rootQ == 0) return rootP;
         if (rootP == 0) return rootQ;
 
-        int eatP = Find(_eat[rootP]);
-        int eatQ = Find(_eat[rootQ]);
-        if (eatP == rootQ || eatQ == rootP) return 0;   // fails but not union
-
         int root;
-        if (_sz[rootP] < _sz[rootQ]) {
-            _id[rootP] = root = rootQ;
-            _sz[rootQ] += _sz[rootP];
-            if (eatQ == 0) _eat[rootQ] = eatQ = eatP;
-        } else {
+        // 權重合併集合 (rootP, rootQ)
+        if (_sz[rootP] >= _sz[rootQ]) {
+            // 合併 rootQ 到 rootP
             _id[rootQ] = root = rootP;
             _sz[rootP] += _sz[rootQ];
-            if (eatP == 0) _eat[rootP] = eatP = eatQ;
+
+            // _rt[rootQ] 計算: 減去 _rt[q] 表示回到 rootQ 的關係起點,
+            // 再以 _rt[p] 為基礎加上 p2q_relation 才為 rootQ 對 rootP 的關係
+            _rt[rootQ] = (3 + _rt[p] - _rt[q] + p2q_relation) % 3;
+        } else {
+            // 合併 rootP 到 rootQ
+            _id[rootP] = root = rootQ;
+            _sz[rootQ] += _sz[rootP];
+
+            // _rt[rootP] 計算: 減去 _rt[p] 表示回到 rootP 的關係起點,
+            // 再以 _rt[q] 為基礎減去 p2q_relation 才為 rootP 對 rootQ 的關係
+            _rt[rootP] = (6 + _rt[q] - _rt[p] - p2q_relation) % 3;
         }
 
         if (debug > 1) {
-            cout << "--> Union(p:" << p << ", q:" << q << ")="
+            cout << "--> Union(p:" << p << ", q:" << q
+                << ", rt:" << p2q_relation << ")="
                 << "(rootP:" << rootP << ", rootQ:" << rootQ << ") = root:"
-                << root
-                << " => Union(eatP:" << eatP << ", eatQ:" << eatQ << ")"
-                << endl;
+                << root << endl;
         }
-        if (eatP > 0 && eatQ > 0 && eatP != eatQ) {
-            // Union eatP and eatQ
-            int eaten = Union(eatP, eatQ);
-            if (eaten <= 0) return -1;      // fails but already union
-
-            _eat[root] = eaten;
-            if (_eat[eaten] == root) {
-                if (debug > 1) {
-                    cout << "--> Union(eatP:" << eatP << ", eatQ:" << eatQ
-                        << ")=" << eaten << " == root:" << root
-                        << endl;
-                    dump();
-                }
-                return -1;                  // fails but already union
-            }
-        }
+        if (debug > 2) dump();
 
         _count--;
         return root;
@@ -218,7 +213,7 @@ static void run(int max_num)
             }
         }
 
-         if (x <= 0 || x > N || y <= 0 || y > N) {
+        if (x <= 0 || x > N || y <= 0 || y > N) {
             if (debug) {
                 cout << "  lie: (x, y) out of range" << endl;
             }
@@ -226,54 +221,42 @@ static void run(int max_num)
         } else {
             if (d == 1) {
                 // x, y is same species
-                if (uf.Eat(x, y) || uf.Eat(y, x)) {
+                switch(uf.Relation(x, y)) {
+                  case 0: // x,y 同類
+                    // 真話, 已在同一集合
+                    break;
+                  case 1: // x 吃 y
+                  case 2: // y 吃 x
                     if (debug) {
                         cout << "  lie: x eats y or y eats x" << endl;
                     }
                     lieCount++;
-                } else if (uf.EatEat(x, y) || uf.EatEat(y, x)) {
-                    // (x|y) eats z, z eats (y|x) --> (x, y) are't the same species
-                    if (debug) {
-                        cout << "  lie: (x|y) eats z and z eats (y|x)"
-                            << endl;
-                    }
-                    lieCount++;
-                } else {
-                    if (debug > 1) uf.dump();
-                    UnionFind uf0 = uf;
-                    int sts = uf.Union(x, y);
-                    if (sts <= 0) {
-                        if (sts < 0) uf = uf0;
-                        if (debug) {
-                            cout << "  lie: union(x, y) fails" << endl;
-                        }
-                        lieCount++;
-                    } else {
-                        if (debug > 1) uf.dump();
-                    }
+                    break;
+                  case -1: // x,y 無關, 合併 (x, y, 同類)
+                    uf.Union(x, y, 0);
+                    break;
                 }
             } else if (d == 2) {
                 // x eats y
-                if (x == y || uf.Connected(x, y)) {
+                switch(uf.Relation(x, y)) {
+                  case 0: // x,y 同類
                     if (debug) {
                         cout << "  lie: (x, y) are the same species" << endl;
                     }
                     lieCount++;
-                } else if (uf.Eat(y, x)) {
+                    break;
+                  case 1: // x 吃 y
+                    // 真話, 已在同一集合
+                    break;
+                  case 2: // y 吃 x
                     if (debug) {
                         cout << "  lie: y eats x" << endl;
                     }
                     lieCount++;
-                } else {
-                    UnionFind uf0 = uf;
-                    int sts = uf.set_eat(x, y);
-                    if (sts <= 0) {
-                        if (sts < 0) uf = uf0;
-                        if (debug) {
-                            cout << "  lie: set_eat(x, y) fails" << endl;
-                        }
-                        lieCount++;
-                    }
+                    break;
+                  case -1: // x,y 無關, 合併 (x, y, x吃y)
+                    uf.Union(x, y, 1);
+                    break;
                 }
             } else {
                 cout << "*** Invalid D:" << d << endl;

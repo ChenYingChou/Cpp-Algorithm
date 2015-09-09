@@ -31,6 +31,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <queue>
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
@@ -45,7 +46,8 @@ using namespace std;
 typedef vector<int> vint;
 typedef vector<bool> vbool;
 typedef vector<vint> vvint;
-typedef vector<vint *> vlist;
+typedef priority_queue<int, vint, less<int> > MaxPQ;
+typedef priority_queue<int, vint, greater<int> > MinPQ;
 
 const int MAX_NUM = 100000;
 
@@ -53,124 +55,58 @@ static int debug;
 
 //---------------------------------------------------------------------------
 
-static void merge(vlist &list)
-{
-    while (list.size() > 1) {
-        int left = 0;
-        int right = list.size()-1;
-        while (left < right) {
-            vint::iterator p1 = list[left]->begin();
-            vint::iterator p2 = list[right]->begin();
-            vint::iterator p10 = list[left]->end();
-            vint::iterator p20 = list[right]->end();
-            vint *p0 = new vint;
-
-            // merge p1, p2 to p0 (descending)
-            while (p1 != p10 && p2 != p20) {
-                if (*p1 > *p2) {
-                    p0->push_back(*p1);
-                    ++p1;
-                } else {
-                    p0->push_back(*p2);
-                    if (*p1 == *p2) ++p1;
-                    ++p2;
-                }
-            }
-            while (p1 != p10) {
-                p0->push_back(*p1);
-                ++p1;
-            }
-            while (p2 != p20) {
-                p0->push_back(*p2);
-                ++p2;
-            }
-
-            delete list[left];
-            delete list[right];
-            list[left] = p0;
-
-            left++;
-            right--;
-        }
-        list.resize(left);
-    }
-}
-
 class Toplogical_Order {
   private:
     vvint _vPath;
     vbool _visited;
-    vint *_post;
-    void dfs(int v);
+    vint _in_degree;
   public:
-    Toplogical_Order(int nVertex) : _vPath(nVertex) {}
-    void add(int v1, int v2) { _vPath[v1-1].push_back(v2-1); }
+    Toplogical_Order(int nV) : _vPath(nV), _visited(nV), _in_degree(nV) {}
+    void add(int v1, int v2) {
+        _vPath[v1-1].push_back(v2-1);
+        _in_degree[v2-1]++;
+    }
     vint sort();
 };
-
-void Toplogical_Order::dfs(int v)
-{
-    _visited[v] = true;
-    vint &vp = _vPath[v];
-    for (vint::reverse_iterator it = vp.rbegin(); it != vp.rend(); ++it) {
-        if (!_visited[*it]) dfs(*it);
-    }
-    _post->push_back(v);
-}
 
 vint Toplogical_Order::sort()
 {
     int nV = _vPath.size();
-    vint in(nV, 0);
-    for (int v1 = 0; v1 < nV; v1++) {
-        vint &vp = _vPath[v1];
-        for (int j = 0; j < vp.size(); j++) {
-            int v2 = vp[j];
-            in[v2]++;
+    MinPQ pq;
+    for (int v = 0; v < nV; v++) {
+        if (_in_degree[v] == 0) {
+            pq.push(v);
+            if (debug) cout << "--> push: " << (v+1) << endl;
         }
     }
 
-    vlist posts;
-    for (int v = 0; v < nV; v++) {
-        if (in[v] == 0) {
-            _visited.clear();
-            _visited.resize(nV);
-            _post = new vint;
-            posts.push_back(_post);
-            dfs(v);
+    vint result;
+    while (!pq.empty()) {
+        int v1 = pq.top(); pq.pop();
+        if (!_visited[v1]) {
+            _visited[v1] = true;
+            result.push_back(v1+1);
+            if (debug) cout << "-->  pop: " << (v1+1) << endl;
 
-            if (debug) {
-                cout << "--> dfs:" << (v+1) << " ( ";
-                for (vint::iterator it = _post->begin(); it != _post->end(); ++it) {
-                    cout << (*it)+1 << ' ';
+            vint &path = _vPath[v1];
+            for (vint::iterator it = path.begin(); it != path.end(); ++it) {
+                int v2 = *it;
+                if (--_in_degree[v2] == 0) {
+                    pq.push(v2);
+                    if (debug) cout << "--> push: " << (v2+1) << endl;
                 }
-                cout << ")" << endl;
             }
         }
     }
-    _post = nullptr;
 
-    merge(posts);
-    assert(posts.size() == 1);
-
-    vint result;
-    {
-        vint &v = *posts[0];
-        if (v.size() != nV) {
-            cout << "*** It's a cycle graph." << endl;
-            abort();
-        }
-        for (int i = v.size(); --i >= 0;) {
-            result.push_back(v[i]+1);
-        }
+    if (result.size() != nV) {
+        cout << "*** It's a cycle graph." << endl;
+        abort();
     }
-
-    // free posts[]
-    delete posts[0];
-    posts.clear();
 
     return result;
 }
+
 //---------------------------------------------------------------------------
 
 static void run(int max_num)
